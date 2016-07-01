@@ -1,6 +1,12 @@
 ####################################################
 # DAMOOCP data load
 ####################################################
+# The functions contained in this file load the data according
+# to a file name convention to R data frames. The functions 
+# basically load the data and ensure that any read.csv or merge
+# operation are working correctly. Any data type change or field
+# validations are performed in the step that follows: 02_clean
+
 
 ########## Script wide variables ##########
 FOLDER_DATA = "CoursesData"
@@ -137,6 +143,9 @@ load_fl_reviews_from_csv <- function(code_list) {
 
 
 # QUESTIONS RESPONSES CSV LOAD
+# The option stringsAsFactors = FALSE was added to avoid a conflict when loading
+# some files in sequence which recognize a fixed amount of items as factors and
+# later merges fail, fillingn the value as NA
 load_fl_questions_from_csv <- function(code_list) {
   
   raw_questions <- data.frame(learner_id = character(), short_code = character(), quiz_question = character(), 
@@ -147,7 +156,7 @@ load_fl_questions_from_csv <- function(code_list) {
   for(c in code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_QUESTION, ".csv", sep = "")
     if(file.exists(file_name)) {
-      temp_read <- read.csv(file_name)
+      temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
       temp_read$short_code <- c
       raw_questions <- merge(raw_questions, temp_read, all = TRUE)
     }
