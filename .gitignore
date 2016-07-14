@@ -29,7 +29,11 @@ vignettes/*.pdf
 /cache/
 
 # Data files
-/CoursesData/*
+/CoursesData/*.csv
+/Data_Downloaded/*.csv
+/Data_Raw/*.csv
+/Data_Clean/*.csv
+/Data_Transformed/*.csv
 
 # Temporary files created by R markdown
 *.utf8.md

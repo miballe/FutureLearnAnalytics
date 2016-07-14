@@ -1,11 +1,17 @@
-####################################################
+#######################################################################
 # DAMOOCP data load
-####################################################
+#######################################################################
 # The functions contained in this file load the data according
 # to a file name convention to R data frames. The functions 
 # basically load the data and ensure that any read.csv or merge
 # operation are working correctly. Any data type change or field
 # validations are performed in the step that follows: 02_clean
+#
+# Known Issues: Exceptionally, one file was found to have a NUL entry
+# and this may occur again. A warning is displayed in case it is found
+# and some observations are lost. To fix this issue, open the CSV file
+# in Notpead++, find the character \0 and delete all its entries.
+#
 
 
 ########## Script wide variables ##########
@@ -21,7 +27,7 @@ SUFFIX_QUESTION = "question-response"
 SUFFIX_STEPACTIVITY = "step-activity"
 
 
-########## Data load operations ##########
+########## Raw Data load operations ##########
 
 # COURSES LIST custom CSV file (not FL provided)
 load_fl_courses_list_from_csv <- function() {
