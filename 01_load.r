@@ -13,12 +13,12 @@ FOLDER_DATA = "CoursesData"
 FILE_COURSELIST = "courselist.csv"
 FILE_COURSEDETAILS = "coursedetails.csv"
 DEFAULT_NADATE = "2000-01-01 00:00:00 UTC"
-SUFFIX_COMMENTS = "cmts"
-SUFFIX_ENROLMENTS = "erts"
-SUFFIX_ASSIGNMENTS = "pras"
-SUFFIX_REVIEWS = "prrv"
-SUFFIX_QUESTION = "qtrp"
-SUFFIX_STEPACTIVITY = "stac"
+SUFFIX_COMMENTS = "comments"
+SUFFIX_ENROLMENTS = "enrolments"
+SUFFIX_ASSIGNMENTS = "peer-review-assignments"
+SUFFIX_REVIEWS = "peer-review-reviews"
+SUFFIX_QUESTION = "question-response"
+SUFFIX_STEPACTIVITY = "step-activity"
 
 
 ########## Data load operations ##########
@@ -63,10 +63,13 @@ load_fl_comments_from_csv <- function(code_list) {
   
   for(c in code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_COMMENTS, ".csv", sep = "")
+    print(file_name)
     if(file.exists(file_name)) {
       temp_read <- read.csv(file_name)
-      temp_read$short_code <- c
-      raw_comments <- merge(raw_comments, temp_read, all = TRUE)
+      if(nrow(temp_read) > 0) {
+        temp_read$short_code <- c
+        raw_comments <- merge(raw_comments, temp_read, all = TRUE)
+      }
     }
   }
   
@@ -89,8 +92,10 @@ load_fl_enrolments_from_csv <- function(code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_ENROLMENTS, ".csv", sep = "")
     if(file.exists(file_name)) {
       temp_read <- read.csv(file_name)
-      temp_read$short_code <- c
-      raw_enrolments <- merge(raw_enrolments, temp_read, all = TRUE)
+      if(nrow(temp_read) > 0) {
+        temp_read$short_code <- c
+        raw_enrolments <- merge(raw_enrolments, temp_read, all = TRUE)
+      }
     }
   }
   
@@ -111,8 +116,10 @@ load_fl_assignments_from_csv <- function(code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_ASSIGNMENTS, ".csv", sep = "")
     if(file.exists(file_name)) {
       temp_read <- read.csv(file_name)
-      temp_read$short_code <- c
-      raw_assignments <- merge(raw_assignments, temp_read, all = TRUE)
+      if(nrow(temp_read) > 0) {
+        temp_read$short_code <- c
+        raw_assignments <- merge(raw_assignments, temp_read, all = TRUE)
+      }
     }
   }
   
@@ -133,8 +140,10 @@ load_fl_reviews_from_csv <- function(code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_REVIEWS, ".csv", sep = "")
     if(file.exists(file_name)) {
       temp_read <- read.csv(file_name)
-      temp_read$short_code <- c
-      raw_reviews <- merge(raw_reviews, temp_read, all = TRUE)
+      if(nrow(temp_read) > 0) {
+        temp_read$short_code <- c
+        raw_reviews <- merge(raw_reviews, temp_read, all = TRUE)
+      }
     }
   }
   
@@ -157,8 +166,10 @@ load_fl_questions_from_csv <- function(code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_QUESTION, ".csv", sep = "")
     if(file.exists(file_name)) {
       temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
-      temp_read$short_code <- c
-      raw_questions <- merge(raw_questions, temp_read, all = TRUE)
+      if(nrow(temp_read) > 0) {
+        temp_read$short_code <- c
+        raw_questions <- merge(raw_questions, temp_read, all = TRUE)
+      }
     }
   }
   
@@ -177,8 +188,10 @@ load_fl_steps_from_csv <- function(code_list) {
     file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_STEPACTIVITY, ".csv", sep = "")
     if(file.exists(file_name)) {
       temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
-      temp_read$short_code <- c
-      raw_steps <- merge(raw_steps, temp_read, all = TRUE)
+      if(nrow(temp_read) > 0) {
+        temp_read$short_code <- c
+        raw_steps <- merge(raw_steps, temp_read, all = TRUE)
+      }
     }
   }
   
