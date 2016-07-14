@@ -1,6 +1,6 @@
-#######################################################################
+#----------------------------------------------------------------------
 # DAMOOCP data load
-#######################################################################
+#----------------------------------------------------------------------
 # The functions contained in this file load the data according
 # to a file name convention to R data frames. The functions 
 # basically load the data and ensure that any read.csv or merge
@@ -14,53 +14,67 @@
 #
 
 
-########## Script wide variables ##########
-FOLDER_DATA = "CoursesData"
-FILE_COURSELIST = "courselist.csv"
-FILE_COURSEDETAILS = "coursedetails.csv"
+########## Script wide constants ##########
+DATA_DOWNLOADED = "Data_Downloaded"
+DATA_RAW = "Data_Raw"
+DATA_CLEAN = "Data_Clean"
+DATA_TRANSFORMED = "Data_Transformed"
+FILE_COURSELIST = "course-list.csv"
+FILE_COURSEDETAILS = "course-details.csv"
 DEFAULT_NADATE = "2000-01-01 00:00:00 UTC"
 SUFFIX_COMMENTS = "comments"
 SUFFIX_ENROLMENTS = "enrolments"
-SUFFIX_ASSIGNMENTS = "peer-review-assignments"
-SUFFIX_REVIEWS = "peer-review-reviews"
-SUFFIX_QUESTION = "question-response"
+SUFFIX_PRASSIGNMENTS = "peer-review-assignments"
+SUFFIX_PRREVIEWS = "peer-review-reviews"
+SUFFIX_QUESTIONRESPONSE = "question-response"
 SUFFIX_STEPACTIVITY = "step-activity"
 
 
-########## Raw Data load operations ##########
+##### CUSTOM COURSES CSV READ Operations #####
 
-# COURSES LIST custom CSV file (not FL provided)
-load_fl_courses_list_from_csv <- function() {
-  
+# LIST custom CSV file (not FL provided)
+load_from_csv_course_list <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_from_csv_course_list")
   raw_coursel <- data.frame(short_code = character(), full_name = character(),
                              start_date = as.Date(character()), end_date = as.Date(character()),
                              run_number = integer(), department = character() )
 
-  file_name <- paste("./", FOLDER_DATA, "/", FILE_COURSELIST, sep = "")
+  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSELIST, sep = "")
+  log4r::debug(logger, paste("- READING - ", file_name))
   raw_coursel <- read.csv(file_name)
-
+  log4r::debug(logger, paste("- COMPLETE - ", file_name))
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_from_csv_course_list", fstop_time[3], "s"))
   return(raw_coursel)
 }
 
 
-# COURSES DETAILS custom CSV file (not FL provided)
-load_fl_courses_details_from_csv <- function() {
-  
+# DETAILS custom CSV file (not FL provided)
+load_from_csv_course_details <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_from_csv_course_details")
   raw_coursed <- data.frame(short_code = character(), week_number = integer(),
                              step_number = integer(),  material_type = character(),
                              estimated_time = integer(), release_date = as.Date(character()),
                              unavailable_date = as.Date(character()) )
                             
-  file_name <- paste("./", FOLDER_DATA, "/", FILE_COURSEDETAILS, sep = "")
+  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSEDETAILS, sep = "")
+  log4r::debug(logger, paste("- READING - ", file_name))
   raw_coursed <- read.csv(file_name)
-  
+  log4r::debug(logger, paste("- COMPLETE - ", file_name))
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_from_csv_course_details", fstop_time[3], "s"))
   return(raw_coursed)
 }
 
 
-# COMMENTS CSV LOAD
-load_fl_comments_from_csv <- function(code_list) {
-  
+##### FutureLearn Downloaded CSV READ Operations #####
+
+# Downloaded Comments CSV Load
+load_downloaded_comments <- function(code_list) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_downloaded_comments")
   raw_comments <- data.frame(id = integer(), short_code = character(), author_id = character(),
                             parent_id = integer(), step = character(),
                             week_number = integer(), step_number = integer(),
@@ -68,24 +82,29 @@ load_fl_comments_from_csv <- function(code_list) {
                             moderated = as.Date(character()), likes = integer() )
   
   for(c in code_list) {
-    file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_COMMENTS, ".csv", sep = "")
+    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_COMMENTS, ".csv", sep = "")
     print(file_name)
     if(file.exists(file_name)) {
+      log4r::debug(logger, paste("- READING - ", file_name))
       temp_read <- read.csv(file_name)
       if(nrow(temp_read) > 0) {
+        log4r::debug(logger, paste("- MERGING - ", file_name))
         temp_read$short_code <- c
         raw_comments <- merge(raw_comments, temp_read, all = TRUE)
       }
+      log4r::debug(logger, paste("- COMPLETE - ", file_name))
     }
   }
-  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_downloaded_comments", fstop_time[3], "s"))
   return(raw_comments)
 }
 
 
-# ENROLMENTS CSV LOAD
-load_fl_enrolments_from_csv <- function(code_list) {
-  
+# Downloaded Enrolments CSV Load
+load_downloaded_enrolments <- function(code_list) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_downloaded_enrolments")
   raw_enrolments <- data.frame(short_code = character(), learner_id = character(), 
                              enrolled_at = as.Date(character()), unenrolled_at = character(),
                              role = character(), fully_participated_at = character(),
@@ -95,23 +114,28 @@ load_fl_enrolments_from_csv <- function(code_list) {
                              employment_area = character())
   
   for(c in code_list) {
-    file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_ENROLMENTS, ".csv", sep = "")
+    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_ENROLMENTS, ".csv", sep = "")
     if(file.exists(file_name)) {
+      log4r::debug(logger, paste("- READING - ", file_name))
       temp_read <- read.csv(file_name)
       if(nrow(temp_read) > 0) {
+        log4r::debug(logger, paste("- MERGING - ", file_name))
         temp_read$short_code <- c
         raw_enrolments <- merge(raw_enrolments, temp_read, all = TRUE)
       }
+      log4r::debug(logger, paste("- COMPLETE", file_name))
     }
   }
-  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_downloaded_enrolments", fstop_time[3], "s"))
   return(raw_enrolments)
 }
 
 
-# ASSIGNMENTS CSV LOAD
-load_fl_assignments_from_csv <- function(code_list) {
-  
+# Downloaded Peer Review Assignments CSV Load
+load_downloaded_peer_review_assignments <- function(code_list) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_downloaded_peer_review_assignments")
   raw_assignments <- data.frame(id = integer(), short_code = character(), step = character(), 
                                week_number = integer(), step_number = integer(),
                                author_id = character(), text = character(),
@@ -119,23 +143,28 @@ load_fl_assignments_from_csv <- function(code_list) {
                                moderated = character(), review_count = integer() )
   
   for(c in code_list) {
-    file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_ASSIGNMENTS, ".csv", sep = "")
+    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_PRASSIGNMENTS, ".csv", sep = "")
     if(file.exists(file_name)) {
+      log4r::debug(logger, paste("- READING - ", file_name))
       temp_read <- read.csv(file_name)
       if(nrow(temp_read) > 0) {
+        log4r::debug(logger, paste("- MERGING - ", file_name))
         temp_read$short_code <- c
         raw_assignments <- merge(raw_assignments, temp_read, all = TRUE)
       }
+      log4r::debug(logger, paste("- COMPLETE - ", file_name))
     }
   }
-  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_downloaded_peer_review_assignments", fstop_time[3], "s"))
   return(raw_assignments)
 }
 
 
-# REVIEWS CSV LOAD
-load_fl_reviews_from_csv <- function(code_list) {
-  
+# Downloaded Peer Review Reviews CSV Load
+load_downloaded_peer_review_reviews <- function(code_list) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_downloaded_peer_review_reviews")
   raw_reviews <- data.frame(id = integer(), short_code = character(), step = character(), 
                             week_number = integer(), step_number = integer(),
                             reviewer_id = character(), assignment_id = integer(),
@@ -143,65 +172,101 @@ load_fl_reviews_from_csv <- function(code_list) {
                             guideline_three_feedback = character(), created_at = character() )
   
   for(c in code_list) {
-    file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_REVIEWS, ".csv", sep = "")
+    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_PRREVIEWS, ".csv", sep = "")
     if(file.exists(file_name)) {
+      log4r::debug(logger, paste("- READING - ", file_name))
       temp_read <- read.csv(file_name)
       if(nrow(temp_read) > 0) {
+        log4r::debug(logger, paste("- MERGING - ", file_name))
         temp_read$short_code <- c
         raw_reviews <- merge(raw_reviews, temp_read, all = TRUE)
       }
+      log4r::debug(logger, paste("- COMPLETE - ", file_name))
     }
   }
-  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_downloaded_peer_review_reviews", fstop_time[3], "s"))
   return(raw_reviews)
 }
 
 
-# QUESTIONS RESPONSES CSV LOAD
+# Downloaded Question Response CSV Load
 # The option stringsAsFactors = FALSE was added to avoid a conflict when loading
 # some files in sequence which recognize a fixed amount of items as factors and
 # later merges fail, fillingn the value as NA
-load_fl_questions_from_csv <- function(code_list) {
-  
+load_downloaded_question_response <- function(code_list) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_downloaded_question_response")
   raw_questions <- data.frame(learner_id = character(), short_code = character(), quiz_question = character(), 
                             week_number = character(), step_number = character(),
                             question_number = character(), response = character(),
                             submitted_at = character(), correct = character() )
   
   for(c in code_list) {
-    file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_QUESTION, ".csv", sep = "")
+    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_QUESTIONRESPONSE, ".csv", sep = "")
     if(file.exists(file_name)) {
+      log4r::debug(logger, paste("- READING - ", file_name))
       temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
       if(nrow(temp_read) > 0) {
+        log4r::debug(logger, paste("- MERGING - ", file_name))
         temp_read$short_code <- c
         raw_questions <- merge(raw_questions, temp_read, all = TRUE)
       }
+      log4r::debug(logger, paste("- COMPLETE - ", file_name))
     }
   }
-  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_downloaded_question_response", fstop_time[3], "s"))
   return(raw_questions)
 }
 
 
-# STEPS ACTIONS CSV LOAD
-load_fl_steps_from_csv <- function(code_list) {
-  
+# Downloaded Step Activity CSV Load
+load_downloaded_step_activity <- function(code_list) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_downloaded_step_activity")
   raw_steps <- data.frame(learner_id = character(), short_code = character(), step = character(), 
                          week_number = character(), step_number = character(),
                          first_visited_at = character(), last_completed_at = character() )
   
   for(c in code_list) {
-    file_name <- paste("./", FOLDER_DATA, "/", c, "_", SUFFIX_STEPACTIVITY, ".csv", sep = "")
+    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_STEPACTIVITY, ".csv", sep = "")
     if(file.exists(file_name)) {
+      log4r::debug(logger, paste("- READING - ", file_name))
       temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
       if(nrow(temp_read) > 0) {
+        log4r::debug(logger, paste("- MERGING - ", file_name))
         temp_read$short_code <- c
         raw_steps <- merge(raw_steps, temp_read, all = TRUE)
       }
+      log4r::debug(logger, paste("- COMPLETE - ", file_name))
     }
   }
-  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_downloaded_step_activity", fstop_time[3], "s"))
   return(raw_steps)
 }
 
 
+##### RAW Data WRITE Operations #####
+
+# Write RAW Course List
+save_raw_course_list <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_course_list")
+  
+  
+  log4r::debug(logger, paste("- WRITING - ", file_name))
+  write.csv(file_name, stringsAsFactors=FALSE)
+  log4r::debug(logger, paste("- COMPLETE - ", file_name))
+
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_course_list", fstop_time[3], "s"))
+}
+
+
+
+
+
+
+##### RAW Data READ Operations #####
