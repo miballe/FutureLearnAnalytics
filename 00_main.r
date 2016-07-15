@@ -16,16 +16,16 @@ library("log4r")
 source("01_load.r")
 source("02_clean.r")
 
+# Logging object creation and initialization
 logger <- create.logger()
 logfile(logger) <- file.path("./damoocp.log")
 level(logger) <- "DEBUG"
-
 info(logger, "***** MAIN EXECUTION START *****")
 
 
-########## Initialization ##########
+########## Execution Sequence (enable/disable) ##########
 LOAD_DOWNLOADED_DATA <- TRUE
-SAVE_RAW_DATA <- FALSE
+SAVE_RAW_DATA <- TRUE
 LOAD_RAW_DATA <- FALSE
 PROCESS_DATA_CLEANING <- FALSE
 SAVE_CLEAN_DATA <- FALSE
@@ -52,16 +52,18 @@ if(LOAD_DOWNLOADED_DATA){
   info(logger, "- IGNORED - Load Downloaded Data")
 }
 
+########## Data write ##########
+# Functions from 01_load.r
 if(SAVE_RAW_DATA) {
   info(logger, "- START - Save Raw Data")
-  write.csv(df_course_list, "./Data_Raw/df_course_list_raw.csv", row.names = FALSE)
-  write.csv(df_course_details, "./Data_Raw/df_course_details_raw.csv", row.names = FALSE)
-  write.csv(df_comments, "./Data_Raw/df_comments_raw.csv", row.names = FALSE)
-  write.csv(df_enrolments, "./Data_Raw/df_enrolments_raw.csv", row.names = FALSE)
-  write.csv(df_pr_assignments, "./Data_Raw/df_pr_assignments_raw.csv", row.names = FALSE)
-  write.csv(df_pr_reviews, "./Data_Raw/df_pr_reviews_raw.csv", row.names = FALSE)
-  write.csv(df_question_response, "./Data_Raw/df_question_response_raw.csv", row.names = FALSE)
-  write.csv(df_step_activity, "./Data_Raw/df_step_activity_raw.csv", row.names = FALSE)
+  save_raw_course_list()
+  save_raw_course_details()
+  save_raw_comments()
+  save_raw_enrolments()
+  save_raw_pr_assignments()
+  save_raw_pr_reviews()
+  save_raw_question_response()
+  save_raw_step_activity()
   info(logger, "- END - Save Raw Data")
 } else {
   info(logger, "- IGNORED - Save Raw Data")
@@ -70,7 +72,7 @@ if(SAVE_RAW_DATA) {
 ########## Data cleaning ##########
 # Functions from 02_clean.r
 if(LOAD_RAW_DATA){
-  info(logger, "- START - Load Raw Data")
+  info(logger, "- START - SECTION - Load Raw Data")
   df_course_list = read.csv("./Data_Raw/df_course_list_raw.csv")
   df_course_details = read.csv("./Data_Raw/df_course_details_raw.csv")
   df_comments = read.csv("./Data_Raw/df_comments_raw.csv")
@@ -79,54 +81,54 @@ if(LOAD_RAW_DATA){
   df_reviews = read.csv("./Data_Raw/df_reviews_raw.csv")
   df_questions = read.csv("./Data_Raw/df_questions_raw.csv")
   df_steps = read.csv("./Data_Raw/df_steps_raw.csv")
-  info(logger, "- END - Load Raw Data")
+  info(logger, "- END - SECTION- Load Raw Data")
 } else {
-  info(logger, "- IGNORED - Load Raw Data")
+  info(logger, "- IGNORED - SECTION - Load Raw Data")
 }
 
 if(PROCESS_DATA_CLEANING) {
-  info(logger, "- START - Process Data Cleaning")
+  info(logger, "- START - SECTION - Process Data Cleaning")
   df_comments <- clean_fl_comments_df(df_comments)
   info(logger, "- END - Process Data Cleaning")
 } else {
-  info(logger, "- IGNORED - Process Data Cleaning")
+  info(logger, "- IGNORED - SECTION - Process Data Cleaning")
 }
 
 if(SAVE_CLEAN_DATA) {
-  info(logger, "- START - Save Clean Data")
-  info(logger, "- END - Save Clean Data")
+  info(logger, "- START - SECTION - Save Clean Data")
+  info(logger, "- END - SECTION - Save Clean Data")
 } else {
-  info(logger, "- IGNORED - Save Clean Data")
+  info(logger, "- IGNORED - SECTION - Save Clean Data")
 }
 
 ########## Data transformation and feature engineering ##########
 # Functions from 03_transform.r
 if(LOAD_CLEAN_DATA){
-  info(logger, "- START - Load Clean Data")
-  info(logger, "- END - Load Clean Data")
+  info(logger, "- START - SECTION - Load Clean Data")
+  info(logger, "- END - SECTION - Load Clean Data")
 } else {
-  info(logger, "- IGNORED - Load Clean Data")
+  info(logger, "- IGNORED - SECTION - Load Clean Data")
 }
 
 if(PROCESS_DATA_TRANSFORMATION) {
-  info(logger, "- START - Process Data Transformation")
-  info(logger, "- END - Process Data Transformation")
+  info(logger, "- START - SECTION - Process Data Transformation")
+  info(logger, "- END - SECTION - Process Data Transformation")
 } else {
-  info(logger, "- IGNORED - Process Data Transformation")
+  info(logger, "- IGNORED - SECTION - Process Data Transformation")
 }
 
 if(SAVE_TRANSFORMED_DATA) {
-  info(logger, "- START - Save Transformed Data")
-  info(logger, "- END - Save Transformed Data")
+  info(logger, "- START - SECTION - Save Transformed Data")
+  info(logger, "- END - SECTION - Save Transformed Data")
 } else {
-  info(logger, "- IGNORED - Save Transformed Data")
+  info(logger, "- IGNORED - SECTION - Save Transformed Data")
 }
 
 if(LOAD_TRANSFORMED_DATA) {
-  info(logger, "- START - Load Transformed Data")
-  info(logger, "- END - Load Transformed Data")
+  info(logger, "- START - SECTION - Load Transformed Data")
+  info(logger, "- END - SECTION - Load Transformed Data")
 } else {
-  info(logger, "- IGNORED - Load Transformed Data")
+  info(logger, "- IGNORED - SECTION - Load Transformed Data")
 }
 
 info(logger, "***** MAIN EXECUTION END *****")

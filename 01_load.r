@@ -19,8 +19,8 @@ DATA_DOWNLOADED = "Data_Downloaded"
 DATA_RAW = "Data_Raw"
 DATA_CLEAN = "Data_Clean"
 DATA_TRANSFORMED = "Data_Transformed"
-FILE_COURSELIST = "course-list.csv"
-FILE_COURSEDETAILS = "course-details.csv"
+FILE_COURSELIST = "course-list"
+FILE_COURSEDETAILS = "course-details"
 DEFAULT_NADATE = "2000-01-01 00:00:00 UTC"
 SUFFIX_COMMENTS = "comments"
 SUFFIX_ENROLMENTS = "enrolments"
@@ -40,7 +40,7 @@ load_from_csv_course_list <- function() {
                              start_date = as.Date(character()), end_date = as.Date(character()),
                              run_number = integer(), department = character() )
 
-  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSELIST, sep = "")
+  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSELIST, ".csv", sep = "")
   log4r::debug(logger, paste("- READING - ", file_name))
   raw_coursel <- read.csv(file_name)
   log4r::debug(logger, paste("- COMPLETE - ", file_name))
@@ -59,7 +59,7 @@ load_from_csv_course_details <- function() {
                              estimated_time = integer(), release_date = as.Date(character()),
                              unavailable_date = as.Date(character()) )
                             
-  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSEDETAILS, sep = "")
+  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSEDETAILS, ".csv", sep = "")
   log4r::debug(logger, paste("- READING - ", file_name))
   raw_coursed <- read.csv(file_name)
   log4r::debug(logger, paste("- COMPLETE - ", file_name))
@@ -251,22 +251,108 @@ load_downloaded_step_activity <- function(code_list) {
 ##### RAW Data WRITE Operations #####
 
 # Write RAW Course List
+save_raw_csv <- function(data_frame, suffix) {
+  file_name <- paste("./", DATA_RAW, "/", suffix, "_raw.csv", sep = "")
+  log4r::debug(logger, paste("- WRITING - Raw File", file_name))
+  write.csv(data_frame, file_name, row.names = FALSE)
+  log4r::debug(logger, paste("- COMPLETE - Raw File", file_name))
+}
+
 save_raw_course_list <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_course_list")
-  
-  
-  log4r::debug(logger, paste("- WRITING - ", file_name))
-  write.csv(file_name, stringsAsFactors=FALSE)
-  log4r::debug(logger, paste("- COMPLETE - ", file_name))
-
+  if(exists("df_course_list")) {
+    save_raw_csv(df_course_list, FILE_COURSELIST)
+  } else {
+    log4r::error(logger, "Data Frame df_course_list doesn't exist!")
+  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_course_list", fstop_time[3], "s"))
 }
 
+save_raw_course_details <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_course_details")
+  if(exists("df_course_details")) {
+    save_raw_csv(df_course_details, FILE_COURSEDETAILS)
+  } else {
+    log4r::error(logger, "Data Frame df_course_details doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_course_details", fstop_time[3], "s"))
+}
 
+save_raw_comments <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_comments")
+  if(exists("df_comments")) {
+    save_raw_csv(df_comments, SUFFIX_COMMENTS)
+  } else {
+    log4r::error(logger, "Data Frame df_comments doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_comments", fstop_time[3], "s"))
+}
 
+save_raw_enrolments <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_enrolments")
+  if(exists("df_enrolments")) {
+    save_raw_csv(df_enrolments, SUFFIX_ENROLMENTS)
+  } else {
+    log4r::error(logger, "Data Frame df_enrolments doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_enrolments", fstop_time[3], "s"))
+}
 
+save_raw_pr_assignments <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_pr_assignments")
+  if(exists("df_pr_assignments")) {
+    save_raw_csv(df_pr_assignments, SUFFIX_PRASSIGNMENTS)
+  } else {
+    log4r::error(logger, "Data Frame df_pr_assignments doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_pr_assignments", fstop_time[3], "s"))
+}
+
+save_raw_pr_reviews <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_pr_reviews")
+  if(exists("df_pr_reviews")) {
+    save_raw_csv(df_pr_reviews, SUFFIX_PRREVIEWS)
+  } else {
+    log4r::error(logger, "Data Frame df_pr_reviews doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_pr_reviews", fstop_time[3], "s"))
+}
+
+save_raw_question_response <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_question_response")
+  if(exists("df_question_response")) {
+    save_raw_csv(df_question_response, SUFFIX_QUESTIONRESPONSE)
+  } else {
+    log4r::error(logger, "Data Frame df_question_response doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_question_response", fstop_time[3], "s"))
+}
+
+save_raw_step_activity <- function() {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_raw_step_activity")
+  if(exists("df_step_activity")) {
+    save_raw_csv(df_step_activity, SUFFIX_STEPACTIVITY)
+  } else {
+    log4r::error(logger, "Data Frame df_step_activity doesn't exist!")
+  }
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_raw_step_activity", fstop_time[3], "s"))
+}
 
 
 ##### RAW Data READ Operations #####
