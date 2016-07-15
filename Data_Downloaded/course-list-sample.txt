@@ -1,0 +1,15 @@
+short_code,full_name,start_date,end_date,run_number,department
+research-project-1,Developing your research project,2014-07-14 00:00:00 UTC,2014-09-01 00:00:00 UTC,1,Student Recruitment
+research-project-2,Developing your research project,2014-09-15 00:00:00 UTC,2014-11-10 00:00:00 UTC,2,Student Recruitment
+research-project-3,Developing your research project,2015-06-22 00:00:00 UTC,2015-08-17 00:00:00 UTC,3,Student Recruitment
+research-project-4,Developing your research project,2015-09-14 00:00:00 UTC,2015-11-09 00:00:00 UTC,4,Student Recruitment
+research-project-5,Developing your research project,2016-03-07 00:00:00 UTC,2016-05-02 00:00:00 UTC,5,Student Recruitment
+web-science-1,Web Science: How the Web is changing the world,2013-11-11 00:00:00 UTC,2013-12-23 00:00:00 UTC,1,ECS
+web-science-2,Web Science: How the Web is changing the world,2014-02-03 00:00:00 UTC,2014-03-24 00:00:00 UTC,2,ECS
+web-science-3,Web Science: How the Web is changing the world,2014-10-06 00:00:00 UTC,2014-11-10 00:00:00 UTC,3,ECS
+web-science-4,Web Science: How the Web is changing the world,2015-11-30 00:00:00 UTC,2015-12-14 00:00:00 UTC,4,ECS
+web-science-5,Web Science: How the Web is changing the world,2016-06-27 00:00:00 UTC,2016-07-11 00:00:00 UTC,5,ECS
+understanding-language-1,Understanding Language: Learning and Teaching,2014-11-17 00:00:00 UTC,2014-12-15 00:00:00 UTC,1,Languages
+understanding-language-2,Understanding Language: Learning and Teaching,2015-04-20 00:00:00 UTC,2015-05-18 00:00:00 UTC,2,Languages
+understanding-language-3,Understanding Language: Learning and Teaching,2015-10-19 00:00:00 UTC,2015-11-16 00:00:00 UTC,3,Languages
+understanding-language-4,Understanding Language: Learning and Teaching,2016-04-04 00:00:00 UTC,2014-05-02 00:00:00 UTC,4,Languages
