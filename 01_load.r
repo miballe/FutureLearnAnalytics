@@ -29,6 +29,53 @@ SUFFIX_PRREVIEWS = "peer-review-reviews"
 SUFFIX_QUESTIONRESPONSE = "question-response"
 SUFFIX_STEPACTIVITY = "step-activity"
 
+##### Generic CSV Read functions #####
+
+load_local_csv <- function(data_folder, file_name) {
+  df_return <- data.frame()
+  file_path <- paste("./", data_folder, "/", file_name, ".csv", sep = "")
+  if(file.exists(file_path)) {
+    frstart_time <- proc.time()
+    log4r::debug(logger, paste("- READING - Local CSV", file_path))
+    df_return <- read.csv(file_path, stringsAsFactors=FALSE)
+    frstop_time <- proc.time() - frstart_time
+    log4r::debug(logger, paste("- COMPLETE - Local CSV", file_path, "- Elapsed:", frstop_time[3], "s"))
+  } else {
+    log4r::error(logger, paste("The file", file_path, "doesn't exist!"))
+  }
+  return(df_return)
+}
+
+load_merge_downloaded_csvs <- function(short_ids, data_folder, suffix) {
+  df_return <- data.frame()
+  for(short_id in short_ids) {
+    file_path <- paste("./", data_folder, "/", short_id, "_", suffix, ".csv", sep = "")
+    if(file.exists(file_path)) {
+      frstart_time <- proc.time()
+      log4r::debug(logger, paste("- READING - Downloaded CSV", file_path))
+      df_temp <- read.csv(file_path, stringsAsFactors=FALSE)
+      if(nrow(df_temp) > 0) {
+        df_temp$short_code <- short_id
+        df_return <- merge(df_return, df_temp, all = TRUE)
+      }
+      frstop_time <- proc.time() - frstart_time
+      log4r::debug(logger, paste("- COMPLETE - Downloaded CSV", file_path, "- Elapsed:", frstop_time[3], "s"))
+    } else {
+      log4r::error(logger, paste("The file", file_path, "doesn't exist!"))
+    }
+  }
+  return(df_return)
+}
+
+# Write RAW Course List
+save_local_csv <- function(data_frame, file_name, data_folder) {
+  frstart_time <- proc.time()
+  file_path <- paste("./", data_folder, "/", file_name, ".csv", sep = "")
+  log4r::debug(logger, paste("- WRITING - Local File", file_path))
+  write.csv(data_frame, file_path, row.names = FALSE)
+  frstop_time <- proc.time() - frstart_time
+  log4r::debug(logger, paste("- COMPLETE - Local File", file_path, "- Elapsed:", frstop_time[3], "s"))
+}
 
 ##### CUSTOM COURSES CSV READ Operations #####
 
@@ -36,21 +83,12 @@ SUFFIX_STEPACTIVITY = "step-activity"
 load_from_csv_course_list <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_from_csv_course_list")
-  raw_coursel <- data.frame(short_code = character(), full_name = character(),
-                             start_date = as.Date(character()), end_date = as.Date(character()),
-                             run_number = integer(), department = character() )
 
-  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSELIST, ".csv", sep = "")
-  if(file.exists(file_name)) {
-    log4r::debug(logger, paste("- READING - ", file_name))
-    raw_coursel <- read.csv(file_name)
-    log4r::debug(logger, paste("- COMPLETE - ", file_name))
-  } else {
-    log4r::error(logger, paste("The file", file_name, "doesn't exist!"))
-  }
+  course_list <- load_local_csv(DATA_DOWNLOADED, FILE_COURSELIST)
+
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_from_csv_course_list - Elapsed:", fstop_time[3], "s"))
-  return(raw_coursel)
+  return(course_list)
 }
 
 
@@ -58,22 +96,12 @@ load_from_csv_course_list <- function() {
 load_from_csv_course_details <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_from_csv_course_details")
-  raw_coursed <- data.frame(short_code = character(), week_number = integer(),
-                             step_number = integer(),  material_type = character(),
-                             estimated_time = integer(), release_date = as.Date(character()),
-                             unavailable_date = as.Date(character()) )
-                            
-  file_name <- paste("./", DATA_DOWNLOADED, "/", FILE_COURSEDETAILS, ".csv", sep = "")
-  if(file.exists(file_name)) {
-    log4r::debug(logger, paste("- READING - ", file_name))
-    raw_coursed <- read.csv(file_name)
-    log4r::debug(logger, paste("- COMPLETE - ", file_name))
-  } else {
-    log4r::error(logger, paste("The file", file_name, "doesn't exist!"))
-  }
+
+  course_details <- load_local_csv(DATA_DOWNLOADED, FILE_COURSEDETAILS)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_from_csv_course_details - Elapsed:", fstop_time[3], "s"))
-  return(raw_coursed)
+  return(course_details)
 }
 
 
@@ -83,28 +111,12 @@ load_from_csv_course_details <- function() {
 load_downloaded_comments <- function(code_list) {
   fstart_time <- proc.time()
   info(logger, "- START - load_downloaded_comments")
-  raw_comments <- data.frame(id = integer(), short_code = character(), author_id = character(),
-                            parent_id = integer(), step = character(),
-                            week_number = integer(), step_number = integer(),
-                            text = character(), timestamp = as.Date(character()),
-                            moderated = as.Date(character()), likes = integer() )
+
+  dwnld_comments <- load_merge_downloaded_csvs(code_list, DATA_DOWNLOADED, SUFFIX_COMMENTS)
   
-  for(c in code_list) {
-    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_COMMENTS, ".csv", sep = "")
-    if(file.exists(file_name)) {
-      log4r::debug(logger, paste("- READING - ", file_name))
-      temp_read <- read.csv(file_name)
-      if(nrow(temp_read) > 0) {
-        log4r::debug(logger, paste("- MERGING - ", file_name))
-        temp_read$short_code <- c
-        raw_comments <- merge(raw_comments, temp_read, all = TRUE)
-      }
-      log4r::debug(logger, paste("- COMPLETE - ", file_name))
-    }
-  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_downloaded_comments - Elapsed:", fstop_time[3], "s"))
-  return(raw_comments)
+  return(dwnld_comments)
 }
 
 
@@ -112,30 +124,12 @@ load_downloaded_comments <- function(code_list) {
 load_downloaded_enrolments <- function(code_list) {
   fstart_time <- proc.time()
   info(logger, "- START - load_downloaded_enrolments")
-  raw_enrolments <- data.frame(short_code = character(), learner_id = character(), 
-                             enrolled_at = as.Date(character()), unenrolled_at = character(),
-                             role = character(), fully_participated_at = character(),
-                             purchased_statemet_at = character(), gender = character(),
-                             country = character(), age_range = character(),
-                             highest_education_level = character(), employment_status = character(), 
-                             employment_area = character())
+
+  dwnld_enrolments <- load_merge_downloaded_csvs(code_list, DATA_DOWNLOADED, SUFFIX_ENROLMENTS)
   
-  for(c in code_list) {
-    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_ENROLMENTS, ".csv", sep = "")
-    if(file.exists(file_name)) {
-      log4r::debug(logger, paste("- READING - ", file_name))
-      temp_read <- read.csv(file_name)
-      if(nrow(temp_read) > 0) {
-        log4r::debug(logger, paste("- MERGING - ", file_name))
-        temp_read$short_code <- c
-        raw_enrolments <- merge(raw_enrolments, temp_read, all = TRUE)
-      }
-      log4r::debug(logger, paste("- COMPLETE", file_name))
-    }
-  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_downloaded_enrolments - Elapsed:", fstop_time[3], "s"))
-  return(raw_enrolments)
+  return(dwnld_enrolments)
 }
 
 
@@ -143,28 +137,12 @@ load_downloaded_enrolments <- function(code_list) {
 load_downloaded_peer_review_assignments <- function(code_list) {
   fstart_time <- proc.time()
   info(logger, "- START - load_downloaded_peer_review_assignments")
-  raw_assignments <- data.frame(id = integer(), short_code = character(), step = character(), 
-                               week_number = integer(), step_number = integer(),
-                               author_id = character(), text = character(),
-                               first_viewed_at = character(), submitted_at = character(),
-                               moderated = character(), review_count = integer() )
+
+  dwnld_peer_review_assignments <- load_merge_downloaded_csvs(code_list, DATA_DOWNLOADED, SUFFIX_PRASSIGNMENTS)
   
-  for(c in code_list) {
-    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_PRASSIGNMENTS, ".csv", sep = "")
-    if(file.exists(file_name)) {
-      log4r::debug(logger, paste("- READING - ", file_name))
-      temp_read <- read.csv(file_name)
-      if(nrow(temp_read) > 0) {
-        log4r::debug(logger, paste("- MERGING - ", file_name))
-        temp_read$short_code <- c
-        raw_assignments <- merge(raw_assignments, temp_read, all = TRUE)
-      }
-      log4r::debug(logger, paste("- COMPLETE - ", file_name))
-    }
-  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_downloaded_peer_review_assignments - Elapsed:", fstop_time[3], "s"))
-  return(raw_assignments)
+  return(dwnld_peer_review_assignments)
 }
 
 
@@ -172,59 +150,25 @@ load_downloaded_peer_review_assignments <- function(code_list) {
 load_downloaded_peer_review_reviews <- function(code_list) {
   fstart_time <- proc.time()
   info(logger, "- START - load_downloaded_peer_review_reviews")
-  raw_reviews <- data.frame(id = integer(), short_code = character(), step = character(), 
-                            week_number = integer(), step_number = integer(),
-                            reviewer_id = character(), assignment_id = integer(),
-                            guideline_one_feedback = character(), guideline_two_feedback = character(),
-                            guideline_three_feedback = character(), created_at = character() )
+
+  dwnld_peer_review_reviews <- load_merge_downloaded_csvs(code_list, DATA_DOWNLOADED, SUFFIX_PRREVIEWS)
   
-  for(c in code_list) {
-    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_PRREVIEWS, ".csv", sep = "")
-    if(file.exists(file_name)) {
-      log4r::debug(logger, paste("- READING - ", file_name))
-      temp_read <- read.csv(file_name)
-      if(nrow(temp_read) > 0) {
-        log4r::debug(logger, paste("- MERGING - ", file_name))
-        temp_read$short_code <- c
-        raw_reviews <- merge(raw_reviews, temp_read, all = TRUE)
-      }
-      log4r::debug(logger, paste("- COMPLETE - ", file_name))
-    }
-  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_downloaded_peer_review_reviews - Elapsed:", fstop_time[3], "s"))
-  return(raw_reviews)
+  return(dwnld_peer_review_reviews)
 }
 
 
 # Downloaded Question Response CSV Load
-# The option stringsAsFactors = FALSE was added to avoid a conflict when loading
-# some files in sequence which recognize a fixed amount of items as factors and
-# later merges fail, fillingn the value as NA
 load_downloaded_question_response <- function(code_list) {
   fstart_time <- proc.time()
   info(logger, "- START - load_downloaded_question_response")
-  raw_questions <- data.frame(learner_id = character(), short_code = character(), quiz_question = character(), 
-                            week_number = character(), step_number = character(),
-                            question_number = character(), response = character(),
-                            submitted_at = character(), correct = character() )
+
+  dwnld_question_response <- load_merge_downloaded_csvs(code_list, DATA_DOWNLOADED, SUFFIX_QUESTIONRESPONSE)
   
-  for(c in code_list) {
-    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_QUESTIONRESPONSE, ".csv", sep = "")
-    if(file.exists(file_name)) {
-      log4r::debug(logger, paste("- READING - ", file_name))
-      temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
-      if(nrow(temp_read) > 0) {
-        log4r::debug(logger, paste("- MERGING - ", file_name))
-        temp_read$short_code <- c
-        raw_questions <- merge(raw_questions, temp_read, all = TRUE)
-      }
-      log4r::debug(logger, paste("- COMPLETE - ", file_name))
-    }
-  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_downloaded_question_response - Elapsed:", fstop_time[3], "s"))
-  return(raw_questions)
+  return(dwnld_question_response)
 }
 
 
@@ -232,130 +176,110 @@ load_downloaded_question_response <- function(code_list) {
 load_downloaded_step_activity <- function(code_list) {
   fstart_time <- proc.time()
   info(logger, "- START - load_downloaded_step_activity")
-  raw_steps <- data.frame(learner_id = character(), short_code = character(), step = character(), 
-                         week_number = character(), step_number = character(),
-                         first_visited_at = character(), last_completed_at = character() )
+
+  dwnld_step_activity <- load_merge_downloaded_csvs(code_list, DATA_DOWNLOADED, SUFFIX_STEPACTIVITY)
   
-  for(c in code_list) {
-    file_name <- paste("./", DATA_DOWNLOADED, "/", c, "_", SUFFIX_STEPACTIVITY, ".csv", sep = "")
-    if(file.exists(file_name)) {
-      log4r::debug(logger, paste("- READING - ", file_name))
-      temp_read <- read.csv(file_name, stringsAsFactors=FALSE)
-      if(nrow(temp_read) > 0) {
-        log4r::debug(logger, paste("- MERGING - ", file_name))
-        temp_read$short_code <- c
-        raw_steps <- merge(raw_steps, temp_read, all = TRUE)
-      }
-      log4r::debug(logger, paste("- COMPLETE - ", file_name))
-    }
-  }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_downloaded_step_activity - Elapsed:", fstop_time[3], "s"))
-  return(raw_steps)
+  return(dwnld_step_activity)
 }
 
 
 ##### RAW Data WRITE Operations #####
 
-# Write RAW Course List
-save_raw_csv <- function(data_frame, suffix) {
-  file_name <- paste("./", DATA_RAW, "/", suffix, "_raw.csv", sep = "")
-  log4r::debug(logger, paste("- WRITING - Raw File", file_name))
-  write.csv(data_frame, file_name, row.names = FALSE)
-  log4r::debug(logger, paste("- COMPLETE - Raw File", file_name))
-}
 
-save_raw_course_list <- function() {
+
+save_raw_course_list <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_course_list")
-  if(exists("df_course_list")) {
-    save_raw_csv(df_course_list, FILE_COURSELIST)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, FILE_COURSELIST, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_course_list doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_course_list - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_course_details <- function() {
+save_raw_course_details <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_course_details")
-  if(exists("df_course_details")) {
-    save_raw_csv(df_course_details, FILE_COURSEDETAILS)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, FILE_COURSEDETAILS, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_course_details doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_course_details - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_comments <- function() {
+save_raw_comments <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_comments")
-  if(exists("df_comments")) {
-    save_raw_csv(df_comments, SUFFIX_COMMENTS)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, SUFFIX_COMMENTS, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_comments doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_comments - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_enrolments <- function() {
+save_raw_enrolments <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_enrolments")
-  if(exists("df_enrolments")) {
-    save_raw_csv(df_enrolments, SUFFIX_ENROLMENTS)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, SUFFIX_ENROLMENTS, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_enrolments doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_enrolments - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_pr_assignments <- function() {
+save_raw_pr_assignments <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_pr_assignments")
-  if(exists("df_pr_assignments")) {
-    save_raw_csv(df_pr_assignments, SUFFIX_PRASSIGNMENTS)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, SUFFIX_PRASSIGNMENTS, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_pr_assignments doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_pr_assignments - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_pr_reviews <- function() {
+save_raw_pr_reviews <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_pr_reviews")
-  if(exists("df_pr_reviews")) {
-    save_raw_csv(df_pr_reviews, SUFFIX_PRREVIEWS)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, SUFFIX_PRREVIEWS, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_pr_reviews doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_pr_reviews - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_question_response <- function() {
+save_raw_question_response <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_question_response")
-  if(exists("df_question_response")) {
-    save_raw_csv(df_question_response, SUFFIX_QUESTIONRESPONSE)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, SUFFIX_QUESTIONRESPONSE, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_question_response doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_question_response - Elapsed:", fstop_time[3], "s"))
 }
 
-save_raw_step_activity <- function() {
+save_raw_step_activity <- function(df_to_save) {
   fstart_time <- proc.time()
   info(logger, "- START - save_raw_step_activity")
-  if(exists("df_step_activity")) {
-    save_raw_csv(df_step_activity, SUFFIX_STEPACTIVITY)
+  if(exists("df_to_save")) {
+    save_local_csv(df_to_save, SUFFIX_STEPACTIVITY, DATA_RAW)
   } else {
-    log4r::error(logger, "Data Frame df_step_activity doesn't exist!")
+    log4r::error(logger, "The Data Frame to save doesn't exist!")
   }
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - save_raw_step_activity - Elapsed:", fstop_time[3], "s"))
@@ -364,23 +288,14 @@ save_raw_step_activity <- function() {
 
 ##### RAW Data READ Operations #####
 
-load_raw_csv <- function(suffix) {
-  df_return <- data.frame()
-  file_name <- paste("./", DATA_RAW, "/", suffix, "_raw.csv", sep = "")
-  if(file.exists(file_name)) {
-    log4r::debug(logger, paste("- READING - Raw File", file_name))
-    df_return <- read.csv( file_name)
-    log4r::debug(logger, paste("- COMPLETE - Raw File", file_name))
-  } else {
-    log4r::error(logger, paste("The file", file_name, "doesn't exist!"))
-  }
-  return(df_return)
-}
+
 
 load_raw_course_list <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_course_list")
-  raw_course_list <- load_raw_csv(FILE_COURSELIST)
+  
+  raw_course_list <- load_local_csv(DATA_RAW, FILE_COURSELIST)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_course_list - Elapsed:", fstop_time[3], "s"))
   return(raw_course_list)
@@ -389,7 +304,9 @@ load_raw_course_list <- function() {
 load_raw_course_details <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_course_details")
-  raw_course_details <- load_raw_csv(FILE_COURSEDETAILS)
+  
+  raw_course_details <- load_local_csv(DATA_RAW, FILE_COURSEDETAILS)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_course_details - Elapsed:", fstop_time[3], "s"))
   return(raw_course_details)
@@ -398,7 +315,9 @@ load_raw_course_details <- function() {
 load_raw_comments <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_comments")
-  raw_comments <- load_raw_csv(SUFFIX_COMMENTS)
+  
+  raw_comments <- load_local_csv(DATA_RAW, SUFFIX_COMMENTS)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_comments - Elapsed:", fstop_time[3], "s"))
   return(raw_comments)
@@ -407,7 +326,9 @@ load_raw_comments <- function() {
 load_raw_enrolments <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_enrolments")
-  raw_enrolments <- load_raw_csv(SUFFIX_ENROLMENTS)
+  
+  raw_enrolments <- load_local_csv(DATA_RAW, SUFFIX_ENROLMENTS)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_enrolments - Elapsed:", fstop_time[3], "s"))
   return(raw_enrolments)
@@ -416,7 +337,9 @@ load_raw_enrolments <- function() {
 load_raw_peer_review_assignments <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_peer_review_assignments")
-  raw_pr_assignments <- load_raw_csv(SUFFIX_PRASSIGNMENTS)
+  
+  raw_pr_assignments <- load_local_csv(DATA_RAW, SUFFIX_PRASSIGNMENTS)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_peer_review_assignments - Elapsed:", fstop_time[3], "s"))
   return(raw_pr_assignments)
@@ -425,7 +348,9 @@ load_raw_peer_review_assignments <- function() {
 load_raw_peer_review_reviews <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_peer_review_reviews")
-  raw_pr_reviews <- load_raw_csv(SUFFIX_PRREVIEWS)
+  
+  raw_pr_reviews <- load_local_csv(DATA_RAW, SUFFIX_PRREVIEWS)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_peer_review_reviews - Elapsed:", fstop_time[3], "s"))
   return(raw_pr_reviews)
@@ -434,7 +359,9 @@ load_raw_peer_review_reviews <- function() {
 load_raw_question_response <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_question_response")
-  raw_question_response <- load_raw_csv(SUFFIX_QUESTIONRESPONSE)
+  
+  raw_question_response <- load_local_csv(DATA_RAW, SUFFIX_QUESTIONRESPONSE)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_question_response - Elapsed:", fstop_time[3], "s"))
   return(raw_question_response)
@@ -443,7 +370,9 @@ load_raw_question_response <- function() {
 load_raw_step_activity <- function() {
   fstart_time <- proc.time()
   info(logger, "- START - load_raw_step_activity")
-  raw_step_activity <- load_raw_csv(SUFFIX_STEPACTIVITY)
+  
+  raw_step_activity <- load_local_csv(DATA_RAW, SUFFIX_STEPACTIVITY)
+  
   fstop_time <- proc.time() - fstart_time
   info(logger, paste("- END - load_raw_step_activity - Elapsed:", fstop_time[3], "s"))
   return(raw_step_activity)
