@@ -25,11 +25,11 @@ info(logger, "***** MAIN_EXECUTION START *****")
 
 
 ########## Execution Sequence (enable/disable) ##########
-LOAD_DOWNLOADED_DATA <- FALSE
-SAVE_RAW_DATA <- FALSE
+LOAD_DOWNLOADED_DATA <- TRUE
+SAVE_RAW_DATA <- TRUE
 LOAD_RAW_DATA <- TRUE
-PROCESS_DATA_CLEANING <- FALSE
-SAVE_CLEAN_DATA <- FALSE
+PROCESS_DATA_CLEANING <- TRUE
+SAVE_CLEAN_DATA <- TRUE
 LOAD_CLEAN_DATA <- FALSE
 PROCESS_DATA_TRANSFORMATION <- FALSE
 SAVE_TRANSFORMED_DATA <- FALSE
@@ -104,7 +104,16 @@ if(LOAD_RAW_DATA){
 if(PROCESS_DATA_CLEANING) {
   cstart_time <- proc.time()
   info(logger, "- START - SECTION - Process_Data_Cleaning")
-  # df_comments <- clean_fl_comments_df(df_comments)
+  
+  df_course_list <- clean_course_list(df_course_list)
+  df_course_details <- clean_course_details(df_course_details)
+  df_comments <- clean_comments(df_comments)
+  df_enrolments <- clean_enrolments(df_enrolments)
+  df_pr_assignments <- clean_pr_assignments(df_pr_assignments)
+  df_pr_reviews <- clean_pr_reviews(df_pr_reviews)
+  df_question_response <- clean_question_response(df_question_response)
+  df_step_activity <- clean_step_activity(df_step_activity)
+  
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Process_Data_Cleaning - Elapsed:", cstop_time[3], "s"))
 } else {
@@ -116,6 +125,10 @@ if(PROCESS_DATA_CLEANING) {
 if(SAVE_CLEAN_DATA) {
   cstart_time <- proc.time()
   info(logger, "- START - SECTION - Save_Clean_Data")
+  
+  obj_to_save <- c("df_course_list", "df_course_details", "df_comments", "df_enrolments",
+                   "df_pr_assignments", "df_pr_reviews", "df_question_response", "df_step_activity")
+  save(list = obj_to_save, file = paste("./", DATA_CLEAN, "/data_clean.RData", sep = ""))
   
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Save_Clean_Data - Elapsed:", cstop_time[3], "s"))

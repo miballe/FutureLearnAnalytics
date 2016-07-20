@@ -21,7 +21,6 @@ DATA_CLEAN = "Data_Clean"
 DATA_TRANSFORMED = "Data_Transformed"
 FILE_COURSELIST = "course-list"
 FILE_COURSEDETAILS = "course-details"
-DEFAULT_NADATE = "2000-01-01 00:00:00 UTC"
 SUFFIX_COMMENTS = "comments"
 SUFFIX_ENROLMENTS = "enrolments"
 SUFFIX_PRASSIGNMENTS = "peer-review-assignments"
@@ -48,6 +47,7 @@ load_local_csv <- function(data_folder, file_name) {
 
 load_merge_downloaded_csvs <- function(short_ids, data_folder, suffix) {
   df_return <- data.frame()
+  first_loop <- TRUE
   for(short_id in short_ids) {
     file_path <- paste("./", data_folder, "/", short_id, "_", suffix, ".csv", sep = "")
     if(file.exists(file_path)) {
@@ -57,6 +57,10 @@ load_merge_downloaded_csvs <- function(short_ids, data_folder, suffix) {
       if(nrow(df_temp) > 0) {
         df_temp$short_code <- short_id
         df_return <- merge(df_return, df_temp, all = TRUE)
+        if(first_loop == TRUE) {
+          first_loop <- FALSE
+          df_return <- merge(df_return, df_temp, all = TRUE)
+        }
       }
       frstop_time <- proc.time() - frstart_time
       log4r::debug(logger, paste("- COMPLETE - Downloaded CSV", file_path, "- Elapsed:", frstop_time[3], "s"))

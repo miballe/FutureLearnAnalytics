@@ -33,7 +33,9 @@ vignettes/*.pdf
 /Data_Downloaded/*.csv
 /Data_Raw/*.csv
 /Data_Clean/*.csv
+/Data_Clean/*.RData
 /Data_Transformed/*.csv
+/Data_Transformed/*.RData
 
 # Temporary files created by R markdown
 *.utf8.md
