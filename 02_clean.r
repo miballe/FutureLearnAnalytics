@@ -196,3 +196,29 @@ clean_step_activity <- function(raw_step_activity) {
   info(logger, paste("- END - raw_step_activity - Elapsed:", fstop_time[3], "s"))
   return(return_df)
 }
+
+
+########## Clean File Operations ##########
+
+save_clean_data_file <- function(objects, file_name) {
+  fstart_time <- proc.time()
+  info(logger, "- START - save_clean_data_file")
+  
+  save(list = objects, file = paste("./", DATA_CLEAN, "/", file_name, ".RData", sep = ""))
+  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - save_clean_data_file - Elapsed:", fstop_time[3], "s"))
+}
+
+
+load_clean_data_file <- function(file_name) {
+  fstart_time <- proc.time()
+  info(logger, "- START - load_clean_data_file")
+  
+  load( file = paste("./", DATA_CLEAN, "/", file_name, ".RData", sep = ""), envir = .GlobalEnv )
+  
+  fstop_time <- proc.time() - fstart_time
+  info(logger, paste("- END - load_clean_data_file - Elapsed:", fstop_time[3], "s"))
+}
+
+

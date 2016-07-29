@@ -37,6 +37,9 @@ vignettes/*.pdf
 /Data_Transformed/*.csv
 /Data_Transformed/*.RData
 
+# Work folders created by jupyter and Kernels
+/.*/*
+
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md

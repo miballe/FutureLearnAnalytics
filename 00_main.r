@@ -11,29 +11,49 @@
 rm( list = ls() )
 
 
+########## Global constants and settings ##########
+# Even if suffixes are originally matching FL conventions, the same names
+# are used for objects at cleand and tranformation stages.
+DATA_DOWNLOADED = "Data_Downloaded"               # Downloaded data folder name
+DATA_RAW = "Data_Raw"                             # Raw data folder name
+DATA_CLEAN = "Data_Clean"                         # Clean data folder name
+DATA_TRANSFORMED = "Data_Transformed"             # Transformed data folder name
+SUFFIX_COMMENTS = "comments"                      # Suffix for comments CSV files from FL
+SUFFIX_ENROLMENTS = "enrolments"                  # Suffix for enrolments CSV files from FL
+SUFFIX_PRASSIGNMENTS = "peer-review-assignments"  # Suffix for Peer to peer review assignments CSV files from FL
+SUFFIX_PRREVIEWS = "peer-review-reviews"          # Suffix for peer to peer review reviews CSV files from FL
+SUFFIX_QUESTIONRESPONSE = "question-response"     # Suffix for question response CSV files from FL
+SUFFIX_STEPACTIVITY = "step-activity"             # Suffix for step activity CSV files from FL
+FILE_COURSELIST = "course-list"                   # Course list file name - Custom file manually created. See ./Data_Downloaded/readme.md for details
+FILE_COURSEDETAILS = "course-details"             # Course details file name - custom file manually created. See ./Data_Downloaded/readme.md for details
+FILE_LOG = "damoocp"                              # Log file name, to be created/appended at the project root folder.
+
+
+########## Execution Sequence (enable/disable) ##########
+LOAD_DOWNLOADED_DATA <- FALSE
+SAVE_RAW_DATA <- FALSE
+LOAD_RAW_DATA <- FALSE
+PROCESS_DATA_CLEANING <- FALSE
+SAVE_CLEAN_DATA <- FALSE
+LOAD_CLEAN_DATA <- FALSE
+PROCESS_DATA_TRANSFORMATION <- FALSE
+SAVE_TRANSFORMED_DATA <- FALSE
+LOAD_TRANSFORMED_DATA <- TRUE
+
+
 ########## Libraries and required scripts ##########
 library("log4r")
 source("01_load.r")
 source("02_clean.r")
+source("03_transform.r")
+
 
 # Logging object creation and initialization
 logger <- create.logger()
-logfile(logger) <- file.path("./damoocp.log")
+logfile(logger) <- file.path(paste("./", FILE_LOG, ".log", sep = ""))
 level(logger) <- "DEBUG"
 sstart_time <- proc.time()
 info(logger, "***** MAIN_EXECUTION START *****")
-
-
-########## Execution Sequence (enable/disable) ##########
-LOAD_DOWNLOADED_DATA <- TRUE
-SAVE_RAW_DATA <- TRUE
-LOAD_RAW_DATA <- TRUE
-PROCESS_DATA_CLEANING <- TRUE
-SAVE_CLEAN_DATA <- TRUE
-LOAD_CLEAN_DATA <- FALSE
-PROCESS_DATA_TRANSFORMATION <- FALSE
-SAVE_TRANSFORMED_DATA <- FALSE
-LOAD_TRANSFORMED_DATA <- FALSE
 
 
 ########## Load Downloaded Data ##########
@@ -128,7 +148,7 @@ if(SAVE_CLEAN_DATA) {
   
   obj_to_save <- c("df_course_list", "df_course_details", "df_comments", "df_enrolments",
                    "df_pr_assignments", "df_pr_reviews", "df_question_response", "df_step_activity")
-  save(list = obj_to_save, file = paste("./", DATA_CLEAN, "/data_clean.RData", sep = ""))
+  save_clean_data_file(obj_to_save, DATA_CLEAN)
   
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Save_Clean_Data - Elapsed:", cstop_time[3], "s"))
@@ -142,6 +162,8 @@ if(LOAD_CLEAN_DATA){
   cstart_time <- proc.time()
   info(logger, "- START - SECTION - Load_Clean_Data")
   
+  load_clean_data_file(DATA_CLEAN)
+  
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Load_Clean_Data - Elapsed:", cstop_time[3], "s"))
 } else {
@@ -153,6 +175,8 @@ if(LOAD_CLEAN_DATA){
 if(PROCESS_DATA_TRANSFORMATION) {
   cstart_time <- proc.time()
   info(logger, "- START - SECTION - Process_Data_Transformation")
+  
+  
   
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Process_Data_Transformation - Elapsed:", cstop_time[3], "s"))
@@ -166,6 +190,10 @@ if(SAVE_TRANSFORMED_DATA) {
   cstart_time <- proc.time()
   info(logger, "- START - SECTION - Save_Transformed_Data")
   
+  obj_to_save <- c("df_course_list", "df_course_details", "df_comments", "df_enrolments",
+                   "df_pr_assignments", "df_pr_reviews", "df_question_response", "df_step_activity")
+  save_transformed_data_file(obj_to_save, DATA_TRANSFORMED)
+  
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Save_Transformed_Data - Elapsed:", cstop_time[3], "s"))
 } else {
@@ -177,6 +205,8 @@ if(SAVE_TRANSFORMED_DATA) {
 if(LOAD_TRANSFORMED_DATA) {
   cstart_time <- proc.time()
   info(logger, "- START - SECTION - Load_Transformed_Data")
+  
+  load_transformed_data_file(DATA_TRANSFORMED)
   
   cstop_time <- proc.time() - cstart_time
   info(logger, paste("- END - SECTION - Load_Transformed_Data - Elapsed:", cstop_time[3], "s"))

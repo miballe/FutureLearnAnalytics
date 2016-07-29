@@ -14,22 +14,7 @@
 #
 
 
-########## Script wide constants ##########
-DATA_DOWNLOADED = "Data_Downloaded"
-DATA_RAW = "Data_Raw"
-DATA_CLEAN = "Data_Clean"
-DATA_TRANSFORMED = "Data_Transformed"
-FILE_COURSELIST = "course-list"
-FILE_COURSEDETAILS = "course-details"
-SUFFIX_COMMENTS = "comments"
-SUFFIX_ENROLMENTS = "enrolments"
-SUFFIX_PRASSIGNMENTS = "peer-review-assignments"
-SUFFIX_PRREVIEWS = "peer-review-reviews"
-SUFFIX_QUESTIONRESPONSE = "question-response"
-SUFFIX_STEPACTIVITY = "step-activity"
-
 ##### Generic CSV Read functions #####
-
 load_local_csv <- function(data_folder, file_name) {
   df_return <- data.frame()
   file_path <- paste("./", data_folder, "/", file_name, ".csv", sep = "")
