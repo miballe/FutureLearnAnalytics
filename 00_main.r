@@ -11,77 +11,68 @@
 rm( list = ls() )
 
 
-########## Global constants and settings ##########
-# Even if suffixes are originally matching FL conventions, the same names
-# are used for objects at cleand and tranformation stages.
-DATA_DOWNLOADED = "Data_Downloaded"               # Downloaded data folder name
-DATA_RAW = "Data_Raw"                             # Raw data folder name
-DATA_CLEAN = "Data_Clean"                         # Clean data folder name
-DATA_TRANSFORMED = "Data_Transformed"             # Transformed data folder name
-SUFFIX_COMMENTS = "comments"                      # Suffix for comments CSV files from FL
-SUFFIX_ENROLMENTS = "enrolments"                  # Suffix for enrolments CSV files from FL
-SUFFIX_PRASSIGNMENTS = "peer-review-assignments"  # Suffix for Peer to peer review assignments CSV files from FL
-SUFFIX_PRREVIEWS = "peer-review-reviews"          # Suffix for peer to peer review reviews CSV files from FL
-SUFFIX_QUESTIONRESPONSE = "question-response"     # Suffix for question response CSV files from FL
-SUFFIX_STEPACTIVITY = "step-activity"             # Suffix for step activity CSV files from FL
-FILE_COURSELIST = "course-list"                   # Course list file name - Custom file manually created. See ./Data_Downloaded/readme.md for details
-FILE_COURSEDETAILS = "course-details"             # Course details file name - custom file manually created. See ./Data_Downloaded/readme.md for details
-FILE_LOG = "damoocp"                              # Log file name, to be created/appended at the project root folder.
-
-
-########## Execution Sequence (enable/disable) ##########
-LOAD_DOWNLOADED_DATA <- FALSE
-SAVE_RAW_DATA <- FALSE
-LOAD_RAW_DATA <- FALSE
-PROCESS_DATA_CLEANING <- FALSE
-SAVE_CLEAN_DATA <- FALSE
-LOAD_CLEAN_DATA <- FALSE
-PROCESS_DATA_TRANSFORMATION <- FALSE
-SAVE_TRANSFORMED_DATA <- FALSE
-LOAD_TRANSFORMED_DATA <- TRUE
-
-
-########## Libraries and required scripts ##########
-library("log4r")
+########## Sourcing Eependent Scripts ##########
+source("00_config.r")
 source("01_load.r")
 source("02_clean.r")
 source("03_transform.r")
 
+########## Execution Sequence (enable/disable) ##########
+EXECUTE_LOAD_DOWNLOADED_DATA <- FALSE
+EXECUTE_SAVE_RAW_DATA <- FALSE
+EXECUTE_LOAD_RAW_DATA <- TRUE
+EXECUTE_DATA_CLEANING <- TRUE
+EXECUTE_VALIDATE_CLEAN_DATA <- FALSE
+EXECUTE_SAVE_CLEAN_DATA <- TRUE
+EXECUTE_LOAD_CLEAN_DATA <- FALSE
+EXECUTE_DATA_TRANSFORMATION <- FALSE
+EXECUTE_SAVE_TRANSFORMED_DATA <- FALSE
+EXECUTE_LOAD_TRANSFORMED_DATA <- FALSE
 
-# Logging object creation and initialization
-logger <- create.logger()
-logfile(logger) <- file.path(paste("./", FILE_LOG, ".log", sep = ""))
-level(logger) <- "DEBUG"
+# Global errors and warnings containers initalization
+execution_errors <- list()
+execution_warnings <- list()
+
+
+# Process logging start
 sstart_time <- proc.time()
-info(logger, "***** MAIN_EXECUTION START *****")
+log_new_info("***** MAIN_EXECUTION START *****")
 
 
-########## Load Downloaded Data ##########
+########## Load Downloaded Data Section ##########
 # Functions from 01_load.r
-if(LOAD_DOWNLOADED_DATA){
+if(EXECUTE_LOAD_DOWNLOADED_DATA){
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Load_Downloaded_Data")
+  log_new_info("- START - SECTION - Load_Downloaded_Data")
   
   df_course_list <- load_from_csv_course_list()
   df_course_details <- load_from_csv_course_details()
-  df_comments <- load_downloaded_comments(df_course_list[,1])
-  df_enrolments <- load_downloaded_enrolments(df_course_list[,1])
-  df_pr_assignments <- load_downloaded_peer_review_assignments(df_course_list[,1])
-  df_pr_reviews <- load_downloaded_peer_review_reviews(df_course_list[,1])
-  df_question_response <- load_downloaded_question_response(df_course_list[,1])
-  df_step_activity <- load_downloaded_step_activity(df_course_list[,1])
+  # Since further CSV loads depends on the short_code field from course_list,
+  # the process cannot continue unless there are 1 or more entries.
+  if( nrow(df_course_list) > 0 ) {
+    df_comments <- load_downloaded_comments(df_course_list[,1])
+    df_enrolments <- load_downloaded_enrolments(df_course_list[,1])
+    df_pr_assignments <- load_downloaded_peer_review_assignments(df_course_list[,1])
+    df_pr_reviews <- load_downloaded_peer_review_reviews(df_course_list[,1])
+    df_question_response <- load_downloaded_question_response(df_course_list[,1])
+    df_step_activity <- load_downloaded_step_activity(df_course_list[,1])
+  }
+  else {
+    error_new("Course List CSV file is empty or does not exist. Aborting the process!")
+  }
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Load_Downloaded_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Load_Downloaded_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Load_Downloaded_Data")
+  log_new_info("- IGNORED - SECTION - Load_Downloaded_Data")
 }
+
 
 ########## Save Raw Data ##########
 # Functions from 01_load.r
-if(SAVE_RAW_DATA) {
+if(EXECUTE_SAVE_RAW_DATA & length(execution_errors) == 0) {
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Save_Raw_Data")
+  log_new_info("- START - SECTION - Save_Raw_Data")
   
   save_raw_course_list(df_course_list)
   save_raw_course_details(df_course_details)
@@ -93,16 +84,16 @@ if(SAVE_RAW_DATA) {
   save_raw_step_activity(df_step_activity)
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Save_Raw_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Save_Raw_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Save_Raw_Data")
+  log_new_info("- IGNORED - SECTION - Save_Raw_Data")
 }
 
 ########## Load Raw Data ##########
 # Functions from 01_load.r
-if(LOAD_RAW_DATA){
+if(EXECUTE_LOAD_RAW_DATA & length(execution_errors) == 0){
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Load_Raw_Data")
+  log_new_info("- START - SECTION - Load_Raw_Data")
   
   df_course_list <- load_raw_course_list()
   df_course_details <- load_raw_course_details()
@@ -114,16 +105,16 @@ if(LOAD_RAW_DATA){
   df_step_activity <- load_raw_step_activity()
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Load_Raw_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Load_Raw_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Load_Raw_Data")
+  log_new_info("- IGNORED - SECTION - Load_Raw_Data")
 }
 
 ########## Process Data Cleaning ##########
 # Functions from 02_clean.r
-if(PROCESS_DATA_CLEANING) {
+if(EXECUTE_DATA_CLEANING & length(execution_errors) == 0) {
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Process_Data_Cleaning")
+  log_new_info("- START - SECTION - Process_Data_Cleaning")
   
   df_course_list <- clean_course_list(df_course_list)
   df_course_details <- clean_course_details(df_course_details)
@@ -135,85 +126,113 @@ if(PROCESS_DATA_CLEANING) {
   df_step_activity <- clean_step_activity(df_step_activity)
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Process_Data_Cleaning - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Process_Data_Cleaning - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Process_Data_Cleaning")
+  log_new_info("- IGNORED - SECTION - Process_Data_Cleaning")
+}
+
+########## Verify Clean Data Consistency ##########
+# Functions from 02_clean.r
+if(EXECUTE_VALIDATE_CLEAN_DATA & length(execution_errors) == 0) {
+  cstart_time <- proc.time()
+  log_new_info("- START - SECTION - Validate_Clean_Data")
+  
+  validate_course_list(df_course_list)
+  validate_course_details(df_course_details)
+  validate_comments(df_comments)
+  validate_enrolments(df_enrolments)
+  validate_pr_assignments(df_pr_assignments)
+  validate_pr_reviews(df_pr_reviews)
+  validate_question_response(df_question_response)
+  validate_step_activity(df_step_activity)
+  
+  cstop_time <- proc.time() - cstart_time
+  log_new_info(paste("- END - SECTION - Validate_Clean_Data - Elapsed:", cstop_time[3], "s"))
+} else {
+  log_new_info("- IGNORED - SECTION - Validate_Clean_Data")
 }
 
 ########## Save Clean Data ##########
 # Functions from 02_clean.r
-if(SAVE_CLEAN_DATA) {
+if(EXECUTE_SAVE_CLEAN_DATA & length(execution_errors) == 0) {
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Save_Clean_Data")
+  log_new_info("- START - SECTION - Save_Clean_Data")
   
-  obj_to_save <- c("df_course_list", "df_course_details", "df_comments", "df_enrolments",
-                   "df_pr_assignments", "df_pr_reviews", "df_question_response", "df_step_activity")
+  # Lists all objects with name starting with "df_" which is the convention for data frames
+  obj_to_save <- as.vector(ls(pattern =  "^df_.*"))
   save_clean_data_file(obj_to_save, DATA_CLEAN)
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Save_Clean_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Save_Clean_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Save_Clean_Data")
+  log_new_info("- IGNORED - SECTION - Save_Clean_Data")
 }
 
 ########## Load Clean Data ##########
 # Functions from 02_clean.r
-if(LOAD_CLEAN_DATA){
+if(EXECUTE_LOAD_CLEAN_DATA & length(execution_errors) == 0){
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Load_Clean_Data")
+  log_new_info("- START - SECTION - Load_Clean_Data")
   
   load_clean_data_file(DATA_CLEAN)
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Load_Clean_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Load_Clean_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Load_Clean_Data")
+  log_new_info("- IGNORED - SECTION - Load_Clean_Data")
 }
 
 ########## Process Data Transformation ##########
 # Functions from 03_transform.r
-if(PROCESS_DATA_TRANSFORMATION) {
+if(EXECUTE_DATA_TRANSFORMATION & length(execution_errors) == 0) {
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Process_Data_Transformation")
+  log_new_info("- START - SECTION - Process_Data_Transformation")
   
-  
+  df_course_list <- transform_course_list(df_course_list)
+  df_course_details <- transform_course_details(df_course_details)
+  calculate_duration_step_activity()
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Process_Data_Transformation - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Process_Data_Transformation - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Process_Data_Transformation")
+  log_new_info("- IGNORED - SECTION - Process_Data_Transformation")
 }
 
 ########## Save Transformed Data ##########
 # Functions from 03_transform.r
-if(SAVE_TRANSFORMED_DATA) {
+if(EXECUTE_SAVE_TRANSFORMED_DATA & length(execution_errors) == 0) {
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Save_Transformed_Data")
+  log_new_info("- START - SECTION - Save_Transformed_Data")
   
-  obj_to_save <- c("df_course_list", "df_course_details", "df_comments", "df_enrolments",
-                   "df_pr_assignments", "df_pr_reviews", "df_question_response", "df_step_activity")
+  # Lists all objects with name starting with "df_" which is the convention for data frames
+  obj_to_save <- as.vector(ls(pattern =  "^df_.*"))
   save_transformed_data_file(obj_to_save, DATA_TRANSFORMED)
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Save_Transformed_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Save_Transformed_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Save_Transformed_Data")
+  log_new_info("- IGNORED - SECTION - Save_Transformed_Data")
 }
 
 ########## Load Transformed Data ##########
 # Functions from 03_transform.r
-if(LOAD_TRANSFORMED_DATA) {
+if(EXECUTE_LOAD_TRANSFORMED_DATA & length(execution_errors) == 0) {
   cstart_time <- proc.time()
-  info(logger, "- START - SECTION - Load_Transformed_Data")
+  log_new_info("- START - SECTION - Load_Transformed_Data")
   
   load_transformed_data_file(DATA_TRANSFORMED)
   
   cstop_time <- proc.time() - cstart_time
-  info(logger, paste("- END - SECTION - Load_Transformed_Data - Elapsed:", cstop_time[3], "s"))
+  log_new_info(paste("- END - SECTION - Load_Transformed_Data - Elapsed:", cstop_time[3], "s"))
 } else {
-  info(logger, "- IGNORED - SECTION - Load_Transformed_Data")
+  log_new_info("- IGNORED - SECTION - Load_Transformed_Data")
 }
 
 ########## Script Final Operations ##########
+log_new_info(paste("Process Completed with", length(execution_errors), "errors and", length(execution_warnings), "warnings"))
 sstop_time <- proc.time() - sstart_time
-info(logger, paste("***** MAIN_EXECUTION END ***** - Elapsed:", sstop_time[3], "s"))
+log_new_info(paste("***** MAIN_EXECUTION END ***** - Elapsed:", sstop_time[3], "s"))
+rm(cstart_time)
+rm(cstop_time)
+rm(sstart_time)
+rm(sstop_time)
