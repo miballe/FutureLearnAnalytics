@@ -8,6 +8,7 @@
 # notebook.
 
 suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
 
 ########## Global constants and settings ##########
 # Even if suffixes are originally matching FL conventions, the same names

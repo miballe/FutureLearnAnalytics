@@ -29,7 +29,7 @@ clean_course_list <- function(raw_course_list) {
   return_df$departmet <- factor(raw_course_list$department)
   
   # Verifications and default assignments
-  
+  return_df$total_weeks <- as.integer(difftime(raw_course_list$end_date, raw_course_list$start_date, units = "weeks"))
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - clean_course_list - Elapsed:", fstop_time[3], "s"))
@@ -52,6 +52,9 @@ clean_course_details <- function(raw_course_details) {
   return_df$estimated_time <- raw_course_details$estimated_time
   return_df$week_start_date <- strptime(raw_course_details$week_start_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
   return_df$week_end_date <- strptime(raw_course_details$week_end_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  
+  # Verifications and default assignments
+  return_df$total_days <- as.integer(difftime(raw_course_details$week_end_date, raw_course_details$week_start_date, units = "days"))
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - clean_course_details - Elapsed:", fstop_time[3], "s"))

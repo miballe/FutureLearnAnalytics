@@ -12,14 +12,14 @@
 ########## Specific Data Transformation Operations ##########
 transform_course_list <- function(df_clean_course_list){
   
-  df_clean_course_list$total_weeks <- as.integer(difftime(df_clean_course_list$end_date, df_clean_course_list$start_date, units = "weeks"))
+  
 
   return(df_clean_course_list)
 }
 
 transform_course_details <- function(df_clean_course_details) {
   
-  df_clean_course_details$total_weeks <- as.integer(difftime(df_clean_course_details$week_end_date, df_clean_course_details$week_start_date, units = "weeks"))
+  
   
   return(df_clean_course_details)
 }
