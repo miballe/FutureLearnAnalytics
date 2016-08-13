@@ -12,15 +12,13 @@
 ########## Specific Data Transformation Operations ##########
 transform_course_list <- function(df_clean_course_list){
   
-  
 
   return(df_clean_course_list)
 }
 
 transform_course_details <- function(df_clean_course_details) {
   
-  
-  
+
   return(df_clean_course_details)
 }
 

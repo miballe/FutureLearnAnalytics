@@ -49,7 +49,7 @@ clean_course_details <- function(raw_course_details) {
   return_df$week_number <- raw_course_details$week_number
   return_df$step_number <- raw_course_details$step_number
   return_df$material_type <- factor(raw_course_details$material_type)
-  return_df$estimated_time <- raw_course_details$estimated_time
+  return_df$duration_estimated <- raw_course_details$duration_estimated
   return_df$week_start_date <- strptime(raw_course_details$week_start_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
   return_df$week_end_date <- strptime(raw_course_details$week_end_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
   
@@ -81,6 +81,14 @@ clean_enrolments <- function(raw_enrolments) {
   return_df$highest_education_level <- factor(raw_enrolments$highest_education_level)
   return_df$employment_status <- factor(raw_enrolments$employment_status)
   return_df$employment_area <- factor(raw_enrolments$employment_area)
+  
+  # Verifications and default assignments
+  return_df[is.na(return_df$gender),c("gender")] <- "Unknown"
+  return_df[is.na(return_df$country),c("country")] <- "Unknown"
+  return_df[is.na(return_df$age_range),c("age_range")] <- "Unknown"
+  return_df[is.na(return_df$highest_education_level),c("highest_education_level")] <- "Unknown"
+  return_df[is.na(return_df$employment_status),c("employment_status")] <- "Unknown"
+  return_df[is.na(return_df$employment_area),c("employment_area")] <- "Unknown"
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - clean_enrolments - Elapsed:", fstop_time[3], "s"))
@@ -267,6 +275,47 @@ summary_clean_data <- function() {
   count_total <- merge(count_total, count_question_response, all = TRUE)
   count_total[is.na(count_total)] <- 0
   count_total
+}
+
+plot_weeks_steps_hist <- function(test_short_code) {
+  course_steps_times <- df_step_activity[df_step_activity$short_code == test_short_code & !is.na(df_step_activity$total_seconds), c("short_code", "week_number", "step_number", "total_seconds")]
+  steps_stats <- select(course_steps_times[course_steps_times$short_code == test_short_code,], week_number, step_number, total_seconds) %>% group_by(week_number, step_number) %>% select(week_number, step_number, total_seconds) %>% summarize(duration_median = as.integer(median(total_seconds, na.rm = TRUE)), duration_mean = as.integer(mean(total_seconds, na.rm = TRUE)), duration_std = as.integer(sd(total_seconds, na.rm = TRUE)))
+  steps_stats <- merge(df_course_details[df_course_details$short_code == test_short_code, c("short_code", "week_number", "step_number", "duration_estimated")], steps_stats, all = TRUE)
+  course_steps_times$week <- paste(course_steps_times$week_number, "-Week", sep = "")
+  steps_stats$week <- paste(steps_stats$week_number, "-Week", sep = "")
+  return_plot <- ggplot(course_steps_times) + 
+    geom_histogram(aes(x = log(total_seconds)), color = "grey70", bins = 30) +
+    geom_vline(aes(xintercept = log(duration_median)), data = steps_stats, colour = "forestgreen") +
+    geom_vline(aes(xintercept = log(duration_estimated)), data = steps_stats, linetype = "dashed", colour = "royalblue") +
+    geom_vline(aes(xintercept = log(duration_mean)), data = steps_stats, linetype = "dashed", colour = "red") +
+    facet_grid(week ~ step_number, switch = "y") +
+    labs(x = "Duration Seconds (Log scale)", y = "Number of Views")
+  return(return_plot)
+}
+
+get_courses_count_participants <- function() {
+  df_participants <- select(df_enrolments, learner_id, role) %>% 
+                         filter(role == "learner") %>% 
+                             group_by(learner_id) %>% 
+                                 select(learner_id) %>% 
+                                     summarise_(number_courses_taken = ~n())
+  return(table(df_participants$number_courses_taken))
+}
+
+get_unknown_demographics <- function() {
+  df_demographics <- select(df_enrolments, short_code, role, gender, country, age_range, highest_education_level, employment_status, employment_area) %>% filter(role == "learner") %>% select(-role)
+  df_demographics$gender <- ifelse(df_demographics$gender == "Unknown", 1, 0)
+  df_demographics$country <- ifelse(df_demographics$country == "Unknown", 1, 0)
+  df_demographics$age_range <- ifelse(df_demographics$age_range == "Unknown", 1, 0)
+  df_demographics$highest_education_level <- ifelse(df_demographics$highest_education_level == "Unknown", 1, 0)
+  df_demographics$employment_status <- ifelse(df_demographics$employment_status == "Unknown", 1, 0)
+  df_demographics$employment_area <- ifelse(df_demographics$employment_area == "Unknown", 1, 0)
+  ret_value <- df_demographics %>% group_by(short_code) %>% summarise_each(funs(sum))
+  course_count <- count(df_demographics, short_code)
+  ret_value <- merge(ret_value, course_count, all = TRUE)
+  ret_value[,2:7] <- ret_value[,2:7] / ret_value[,8]
+  ret_value$n <- NULL
+  return(ret_value)
 }
 
 
