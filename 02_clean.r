@@ -23,8 +23,8 @@ clean_course_list <- function(raw_course_list) {
   return_df$run_number <- raw_course_list$run_number
   return_df$short_name <- factor(raw_course_list$short_name)
   return_df$full_name <- factor(raw_course_list$full_name)
-  return_df$start_date <- strptime(raw_course_list$start_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$end_date <- strptime(raw_course_list$end_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$start_date <- as.POSIXct(strptime(raw_course_list$start_date, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$end_date <- as.POSIXct(strptime(raw_course_list$end_date, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$institution <- factor(raw_course_list$institution)
   return_df$departmet <- factor(raw_course_list$department)
   
@@ -48,10 +48,10 @@ clean_course_details <- function(raw_course_details) {
   return_df$run_number <- raw_course_details$run_number
   return_df$week_number <- raw_course_details$week_number
   return_df$step_number <- raw_course_details$step_number
-  return_df$material_type <- factor(raw_course_details$material_type)
+  return_df$content_type <- factor(raw_course_details$content_type)
   return_df$duration_estimated <- raw_course_details$duration_estimated
-  return_df$week_start_date <- strptime(raw_course_details$week_start_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$week_end_date <- strptime(raw_course_details$week_end_date, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$week_start_date <- as.POSIXct(strptime(raw_course_details$week_start_date, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$week_end_date <- as.POSIXct(strptime(raw_course_details$week_end_date, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   
   # Verifications and default assignments
   return_df$total_days <- as.integer(difftime(raw_course_details$week_end_date, raw_course_details$week_start_date, units = "days"))
@@ -71,10 +71,10 @@ clean_enrolments <- function(raw_enrolments) {
   return_df$short_code <- factor(raw_enrolments$short_code)
   return_df$learner_id <- factor(raw_enrolments$learner_id)
   return_df$raw_enrolments.learner_id <- NULL
-  return_df$enrolled_at <- strptime(raw_enrolments$enrolled_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$enrolled_at <- as.POSIXct(strptime(raw_enrolments$enrolled_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$role <- factor(raw_enrolments$role)
-  return_df$fully_participated_at <- strptime(raw_enrolments$fully_participated_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$purchased_statement_at <- strptime(raw_enrolments$purchased_statement_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$fully_participated_at <- as.POSIXct(strptime(raw_enrolments$fully_participated_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$purchased_statement_at <- as.POSIXct(strptime(raw_enrolments$purchased_statement_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$gender <- factor(raw_enrolments$gender)  # TODO: Remove entries with "nonbinary" and "other"
   return_df$country <- factor(raw_enrolments$country) 
   return_df$age_range <- factor(raw_enrolments$age_range)
@@ -96,6 +96,34 @@ clean_enrolments <- function(raw_enrolments) {
 }
 
 
+clean_step_activity <- function(raw_step_activity) {
+  fstart_time <- proc.time()
+  log_new_info("- START - clean_step_activity")
+  
+  # Removes the lines with empty learner_id. It cannot be recovered.
+  raw_step_activity <- raw_step_activity[raw_step_activity$learner_id != "",]
+  
+  # Data type conversions
+  return_df <- data.frame(raw_step_activity$learner_id)
+  return_df$short_code <- factor(raw_step_activity$short_code)
+  return_df$learner_id <- factor(raw_step_activity$learner_id)
+  return_df$raw_step_activity.learner_id <- NULL
+  return_df$week_number <- raw_step_activity$week_number
+  return_df$step_number <- raw_step_activity$step_number
+  return_df$first_visited_at <- as.POSIXct(strptime(raw_step_activity$first_visited_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$last_completed_at <- as.POSIXct(strptime(raw_step_activity$last_completed_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  
+  # Verification and default assignments
+  # observations_with_no_dates <- raw_step_activity[is.na(raw_step_activity$first_visited_at) & is.na(raw_step_activity$last_completed_at),]
+  # learners_with_no_dates <- unique(as.vector(observations_with_no_dates$learner_id))
+  return_df$total_seconds <- as.integer(difftime(return_df$last_completed_at, return_df$first_visited_at, units = "secs"))
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - clean_step_activity - Elapsed:", fstop_time[3], "s"))
+  return(return_df)
+}
+
+
 clean_comments <- function(raw_comments) {
   fstart_time <- proc.time()
   log_new_info("- START - clean_comments")
@@ -110,8 +138,8 @@ clean_comments <- function(raw_comments) {
   return_df$week_number <- raw_comments$week_number
   return_df$step_number <- raw_comments$step_number
   return_df$text <- raw_comments$text
-  return_df$timestamp <- strptime(raw_comments$timestamp, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$moderated <- strptime(raw_comments$moderated, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$timestamp <- as.POSIXct(strptime(raw_comments$timestamp, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$moderated <- as.POSIXct(strptime(raw_comments$moderated, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$likes <- raw_comments$likes
 
   fstop_time <- proc.time() - fstart_time
@@ -133,9 +161,9 @@ clean_pr_assignments <- function(raw_pr_assignments) {
   return_df$step_number <- raw_pr_assignments$step_number
   return_df$author_id <- factor(raw_pr_assignments$author_id)
   return_df$text <- raw_pr_assignments$text
-  return_df$first_viewed_at <- strptime(raw_pr_assignments$first_viewed_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$submitted_at <- strptime(raw_pr_assignments$submitted_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$moderated <- strptime(raw_pr_assignments$moderated, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$first_viewed_at <- as.POSIXct(strptime(raw_pr_assignments$first_viewed_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$submitted_at <- as.POSIXct(strptime(raw_pr_assignments$submitted_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$moderated <- as.POSIXct(strptime(raw_pr_assignments$moderated, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$review_count <- raw_pr_assignments$review_count
 
   fstop_time <- proc.time() - fstart_time
@@ -160,7 +188,7 @@ clean_pr_reviews <- function(raw_pr_reviews) {
   return_df$guideline_one_feedback <- raw_pr_reviews$guideline_one_feedback
   return_df$guideline_two_feedback <- raw_pr_reviews$guideline_two_feedback
   return_df$guideline_three_feedback <- raw_pr_reviews$guideline_three_feedback
-  return_df$created_at <- strptime(raw_pr_reviews$created_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$created_at <- as.POSIXct(strptime(raw_pr_reviews$created_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - clean_pr_reviews - Elapsed:", fstop_time[3], "s"))
@@ -184,39 +212,11 @@ clean_question_response <- function(raw_question_response) {
   return_df$step_number <- raw_question_response$step_number
   return_df$question_number <- raw_question_response$question_number
   return_df$response <- factor(raw_question_response$response)
-  return_df$submitted_at <- strptime(raw_question_response$submitted_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return_df$submitted_at <- as.POSIXct(strptime(raw_question_response$submitted_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$correct <- ifelse(tolower(raw_question_response$correct) == "true", TRUE, FALSE)
 
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - clean_question_response - Elapsed:", fstop_time[3], "s"))
-  return(return_df)
-}
-
-
-clean_step_activity <- function(raw_step_activity) {
-  fstart_time <- proc.time()
-  log_new_info("- START - clean_step_activity")
-  
-  # Removes the lines with empty learner_id. It cannot be recovered.
-  raw_step_activity <- raw_step_activity[raw_step_activity$learner_id != "",]
-  
-  # Data type conversions
-  return_df <- data.frame(raw_step_activity$learner_id)
-  return_df$short_code <- factor(raw_step_activity$short_code)
-  return_df$learner_id <- factor(raw_step_activity$learner_id)
-  return_df$raw_step_activity.learner_id <- NULL
-  return_df$week_number <- raw_step_activity$week_number
-  return_df$step_number <- raw_step_activity$step_number
-  return_df$first_visited_at <- strptime(raw_step_activity$first_visited_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  return_df$last_completed_at <- strptime(raw_step_activity$last_completed_at, "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  
-  # Verification and default assignments
-  # observations_with_no_dates <- raw_step_activity[is.na(raw_step_activity$first_visited_at) & is.na(raw_step_activity$last_completed_at),]
-  # learners_with_no_dates <- unique(as.vector(observations_with_no_dates$learner_id))
-  return_df$total_seconds <- as.integer(difftime(return_df$last_completed_at, return_df$first_visited_at, units = "secs"))
-
-  fstop_time <- proc.time() - fstart_time
-  log_new_info(paste("- END - clean_step_activity - Elapsed:", fstop_time[3], "s"))
   return(return_df)
 }
 
@@ -242,6 +242,18 @@ load_clean_data_file <- function(file_name) {
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - load_clean_data_file - Elapsed:", fstop_time[3], "s"))
+}
+
+########## Clean Notebook Specific Functions ##########
+
+get_course_list <- function() {
+  ret_value <- select(df_course_list, short_code, start_date, end_date, total_weeks)
+  return(ret_value)
+}
+
+get_unexpected_course_details <- function() {
+  ret_value <- select(df_course_details, short_code, week_number, step_number, week_start_date, week_end_date, total_days) %>% filter(total_days != 7)
+  return(ret_value)  
 }
 
 summary_clean_data <- function() {
@@ -289,6 +301,7 @@ plot_weeks_steps_hist <- function(test_short_code) {
     geom_vline(aes(xintercept = log(duration_estimated)), data = steps_stats, linetype = "dashed", colour = "royalblue") +
     geom_vline(aes(xintercept = log(duration_mean)), data = steps_stats, linetype = "dashed", colour = "red") +
     facet_grid(week ~ step_number, switch = "y") +
+    ggtitle(paste("Duration Time Histogram for Week-Step Combination \n for", test_short_code)) +
     labs(x = "Duration Seconds (Log scale)", y = "Number of Views")
   return(return_plot)
 }
@@ -316,6 +329,26 @@ get_unknown_demographics <- function() {
   ret_value[,2:7] <- ret_value[,2:7] / ret_value[,8]
   ret_value$n <- NULL
   return(ret_value)
+}
+
+plot_step_activity_daily <- function(course_code){
+  tmp_activity <- select(df_step_activity, short_code, first_visited_at) %>% filter(short_code == course_code) %>% arrange(first_visited_at)
+  tmp_activity$start_date <- as.Date(tmp_activity$first_visited_at)
+  tmp_activity <- select(tmp_activity, first_visited_at, start_date) %>% group_by(start_date) %>% summarize_(day_visits = ~n())
+  ggplot(tmp_activity, aes(start_date, day_visits)) + geom_line() +
+    ggtitle(paste("Activity per day for", course_code)) +
+    labs(x = "Day", y = "Number of Views")
+}
+
+get_user_role_activity_before <- function(course_code, reference_date) {
+  activity_before <- select(df_step_activity, short_code, learner_id, first_visited_at) %>% filter(short_code == course_code & first_visited_at < as.POSIXct(reference_date))
+  unique_user_ids <- unique(activity_before$learner_id)
+  unique_user_ids <- data.frame(unique_user_ids)
+  names(unique_user_ids) <- c("learner_id")
+  users_and_roles <- merge(df_enrolments, unique_user_ids, by = "learner_id")
+  users_and_roles <- select(users_and_roles, learner_id, role)
+  users_and_roles <- unique(users_and_roles)
+  return(users_and_roles)
 }
 
 

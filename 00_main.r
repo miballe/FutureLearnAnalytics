@@ -22,11 +22,10 @@ EXECUTE_LOAD_DOWNLOADED_DATA <- FALSE
 EXECUTE_SAVE_RAW_DATA <- FALSE
 EXECUTE_LOAD_RAW_DATA <- TRUE
 EXECUTE_DATA_CLEANING <- TRUE
-EXECUTE_VALIDATE_CLEAN_DATA <- FALSE
 EXECUTE_SAVE_CLEAN_DATA <- TRUE
 EXECUTE_LOAD_CLEAN_DATA <- FALSE
-EXECUTE_DATA_TRANSFORMATION <- FALSE
-EXECUTE_SAVE_TRANSFORMED_DATA <- FALSE
+EXECUTE_DATA_TRANSFORMATION <- TRUE
+EXECUTE_SAVE_TRANSFORMED_DATA <- TRUE
 EXECUTE_LOAD_TRANSFORMED_DATA <- FALSE
 
 # Global errors and warnings containers initalization
@@ -89,6 +88,7 @@ if(EXECUTE_SAVE_RAW_DATA & length(execution_errors) == 0) {
   log_new_info("- IGNORED - SECTION - Save_Raw_Data")
 }
 
+
 ########## Load Raw Data ##########
 # Functions from 01_load.r
 if(EXECUTE_LOAD_RAW_DATA & length(execution_errors) == 0){
@@ -109,6 +109,7 @@ if(EXECUTE_LOAD_RAW_DATA & length(execution_errors) == 0){
 } else {
   log_new_info("- IGNORED - SECTION - Load_Raw_Data")
 }
+
 
 ########## Process Data Cleaning ##########
 # Functions from 02_clean.r
@@ -131,26 +132,6 @@ if(EXECUTE_DATA_CLEANING & length(execution_errors) == 0) {
   log_new_info("- IGNORED - SECTION - Process_Data_Cleaning")
 }
 
-########## Verify Clean Data Consistency ##########
-# Functions from 02_clean.r
-if(EXECUTE_VALIDATE_CLEAN_DATA & length(execution_errors) == 0) {
-  cstart_time <- proc.time()
-  log_new_info("- START - SECTION - Validate_Clean_Data")
-  
-  validate_course_list(df_course_list)
-  validate_course_details(df_course_details)
-  validate_comments(df_comments)
-  validate_enrolments(df_enrolments)
-  validate_pr_assignments(df_pr_assignments)
-  validate_pr_reviews(df_pr_reviews)
-  validate_question_response(df_question_response)
-  validate_step_activity(df_step_activity)
-  
-  cstop_time <- proc.time() - cstart_time
-  log_new_info(paste("- END - SECTION - Validate_Clean_Data - Elapsed:", cstop_time[3], "s"))
-} else {
-  log_new_info("- IGNORED - SECTION - Validate_Clean_Data")
-}
 
 ########## Save Clean Data ##########
 # Functions from 02_clean.r
@@ -168,6 +149,7 @@ if(EXECUTE_SAVE_CLEAN_DATA & length(execution_errors) == 0) {
   log_new_info("- IGNORED - SECTION - Save_Clean_Data")
 }
 
+
 ########## Load Clean Data ##########
 # Functions from 02_clean.r
 if(EXECUTE_LOAD_CLEAN_DATA & length(execution_errors) == 0){
@@ -182,21 +164,24 @@ if(EXECUTE_LOAD_CLEAN_DATA & length(execution_errors) == 0){
   log_new_info("- IGNORED - SECTION - Load_Clean_Data")
 }
 
+
 ########## Process Data Transformation ##########
 # Functions from 03_transform.r
 if(EXECUTE_DATA_TRANSFORMATION & length(execution_errors) == 0) {
   cstart_time <- proc.time()
   log_new_info("- START - SECTION - Process_Data_Transformation")
   
-  df_course_list <- transform_course_list(df_course_list)
-  df_course_details <- transform_course_details(df_course_details)
-  calculate_duration_step_activity()
+  remove_admin_activity()
+  transform_default_tables()
+  df_course_facts <- transform_course_facts()
+  df_participant_facts <- transform_participant_facts()
   
   cstop_time <- proc.time() - cstart_time
   log_new_info(paste("- END - SECTION - Process_Data_Transformation - Elapsed:", cstop_time[3], "s"))
 } else {
   log_new_info("- IGNORED - SECTION - Process_Data_Transformation")
 }
+
 
 ########## Save Transformed Data ##########
 # Functions from 03_transform.r
@@ -214,6 +199,7 @@ if(EXECUTE_SAVE_TRANSFORMED_DATA & length(execution_errors) == 0) {
   log_new_info("- IGNORED - SECTION - Save_Transformed_Data")
 }
 
+
 ########## Load Transformed Data ##########
 # Functions from 03_transform.r
 if(EXECUTE_LOAD_TRANSFORMED_DATA & length(execution_errors) == 0) {
@@ -227,6 +213,7 @@ if(EXECUTE_LOAD_TRANSFORMED_DATA & length(execution_errors) == 0) {
 } else {
   log_new_info("- IGNORED - SECTION - Load_Transformed_Data")
 }
+
 
 ########## Script Final Operations ##########
 log_new_info(paste("Process Completed with", length(execution_errors), "errors and", length(execution_warnings), "warnings"))
