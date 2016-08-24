@@ -42,12 +42,22 @@ transform_default_tables <- function() {
   log_new_debug("- Calculating total enrolled...")
   tmp_course <- select(df_enrolments, short_code) %>% group_by(short_code) %>% summarize(total_enrolled = n())
   log_new_debug("- Merging total enrolled...")
-  df_course_list <<- merge(df_course_list, tmp_course, all = TRUE)
-  df_course_details <<- merge(df_course_details, select(df_course_list, short_code, short_name, total_enrolled), all = TRUE)
+  df_course_list <<- merge(df_course_list, tmp_course, all.x = TRUE)
+  df_course_details <<- merge(df_course_details, select(df_course_list, short_code, short_name, total_enrolled), all.x = TRUE)
   log_new_debug("- Calculating total steps...")
   tmp_course <- select(df_course_details, short_code) %>% group_by(short_code) %>% summarize(total_steps = n())
   log_new_debug("- Merging total steps...")
   df_course_list <<- merge(df_course_list, tmp_course, all = TRUE)
+  log_new_debug("- Assigning absolute step numbers...")
+  step_numbering <- df_course_details %>% 
+    arrange(short_code, week_number, step_number)
+  step_numbering$step_absolute_number <- NA
+  for(course_code in df_course_list$short_code) {
+    total_steps <- df_course_list[df_course_list$short_code == course_code,]$total_steps[1]
+    step_numbering[step_numbering$short_code == course_code,]$step_absolute_number <- c(1:total_steps)
+  }
+  df_course_details <<- step_numbering
+  step_numbering <- NULL
   
   # Adds to the activity table the course level calculated fields
   log_new_debug("- Merging course level data...")
@@ -61,11 +71,20 @@ transform_default_tables <- function() {
     summarize(duration_median = as.integer(median(total_seconds, na.rm = TRUE)), 
               duration_mean = as.integer(mean(total_seconds, na.rm = TRUE)))
   log_new_debug("- Merging duration subtotals...")
-  df_course_details <<- merge(df_course_details, duration_summary, intersect(names(df_course_details), names(duration_summary)), all = TRUE)
+  df_course_details <<- merge(df_course_details, select(duration_summary, short_code, week_number, step_number, duration_median, duration_mean), all= TRUE)
   
   # Adds to the activity table the course details level calculated fields
   log_new_debug("- Merging precalculated fields to activity...")
-  df_step_activity <<- merge(df_step_activity, select(df_course_details, short_code, week_number, step_number, week_start_date, week_end_date, duration_median, duration_mean), all = TRUE)
+  df_step_activity <<- merge(df_step_activity, select(df_course_details, short_code, week_number, step_number, step_absolute_number, week_start_date, week_end_date, duration_estimated, duration_median, duration_mean), all = TRUE)
+  
+  # Adds to the comments data some calculated fields to ease further aggregations
+  log_new_debug("- Calculating comments fields...")
+  df_comments$clean_text <<- tolower(df_comments$text)
+  df_comments$clean_text <<- removeNumbers(df_comments$clean_text)
+  df_comments$clean_text <<- removeWords(df_comments$clean_text, stopwords("english"))
+  df_comments$clean_text <<- removePunctuation(df_comments$clean_text, preserve_intra_word_dashes = TRUE)
+  df_comments$clean_text <<- stripWhitespace(df_comments$clean_text)
+  df_comments$clean_words_number <<- stri_count_fixed(df_comments$clean_text, " ")
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - transform_default_tables - Elapsed:", fstop_time[3], "s"))
@@ -81,15 +100,9 @@ transform_course_facts <- function() {
 
   # Creates the base object to return
   log_new_debug("- Creating base return data frame...")
-  df_return <- select(df_course_details, short_code, short_name, run_number, week_number, step_number, content_type, duration_estimated, duration_median, duration_mean, week_start_date, week_end_date) %>% 
+  df_return <- select(df_course_details, short_code, short_name, run_number, week_number, step_number, step_absolute_number, content_type, duration_estimated, duration_median, duration_mean, week_start_date, week_end_date) %>% 
     arrange(short_code, week_number, step_number)
-  df_return$step_absolute_number <- NA
-  log_new_debug("- Assigning absolute step numbers...")
-  for(course_code in df_course_list$short_code) {
-    total_steps <- df_course_list[df_course_list$short_code == course_code,]$total_steps[1]
-    df_return[df_return$short_code == course_code,]$step_absolute_number <- c(1:total_steps)
-  }
-  
+
   # Calculates features based on activity fields and grouped by course-week-step
   log_new_debug("- Calculating course activity aggregates...")
   course_activity <- df_step_activity %>%
@@ -125,10 +138,72 @@ transform_participant_facts <- function() {
   fstart_time <- proc.time()
   log_new_info("- START - transform_participant_facts")
   
+  # creates the base object to return
   log_new_debug("- Creating base return data frame...")
-  df_return <- select(df_enrolments, short_code, learner_id, enrolled_at, fully_participated_at, purchased_statement_at, gender, country, age_range, highest_education_level, employment_status, employment_area) %>%
+  df_return <- select(df_enrolments, short_code, learner_id, enrolled_at, unenrolled_at, fully_participated_at, purchased_statement_at, gender, country, age_range, highest_education_level, employment_status, employment_area) %>%
                  arrange(short_code, learner_id)
   
+  # Extracts relevant course info data and merges it in the return data frame. This will simplify further calculations.
+  log_new_debug("- Adding course info data...")
+  course_info <- select(df_course_list, short_code, run_number, short_name, start_date, end_date, total_steps)
+  df_return <- merge(df_return, course_info, c("short_code"), all.x = TRUE)
+  
+  # Extracts activity info grouped by participant (learner_id) and calculate the total visited steps and the max visited week
+  log_new_debug("- Adding step activity aggregated values...")
+  activity_week_info <- df_step_activity %>% 
+                          group_by(short_code, learner_id) %>% 
+                            summarize(visited_steps = n(), 
+                                      max_week = max(week_number),
+                                      max_absolute_step = max(step_absolute_number),
+                                      completed_steps = sum(!is.na(last_completed_at)),
+                                      seen_before_week = sum(first_visited_at < week_start_date),
+                                      seen_during_week = sum(first_visited_at > week_start_date &  first_visited_at < week_end_date ),
+                                      seen_after_week = sum(first_visited_at > week_end_date) )
+  df_return <- merge(df_return, select(activity_week_info, short_code, learner_id, visited_steps, max_week, max_absolute_step, completed_steps, seen_before_week, seen_during_week, seen_after_week) , all.x = TRUE)
+  df_return[is.na(df_return$visited_steps),]$visited_steps <- 0
+  df_return[is.na(df_return$max_week),]$max_week <- 0
+  df_return[is.na(df_return$completed_steps),]$completed_steps <- 0
+  df_return[is.na(df_return$seen_before_week),]$seen_before_week <- 0
+  df_return[is.na(df_return$seen_during_week),]$seen_during_week <- 0
+  df_return[is.na(df_return$seen_after_week),]$seen_after_week <- 0
+  
+  # Calculates ratios and indicators with existing fields in the df_return table
+  log_new_debug("- Calculating visited, completed and seen metrics...")
+  df_return$days_enrolled_before_start <- as.integer(difftime(df_return$start_date, df_return$enrolled_at, units = "days"))
+  df_return$purchased_statement <- ifelse(!is.na(df_return$purchased_statement_at), 1, 0)
+  df_return$visited <- df_return$visited_steps / df_return$total_steps
+  df_return$completed <- df_return$completed_steps / df_return$total_steps
+  df_return$unenrolled <- ifelse(!is.na(df_return$unenrolled_at), 1, 0)
+  df_return$seen_before_week <- df_return$seen_before_week / df_return$visited_steps
+  df_return$seen_during_week <- df_return$seen_during_week / df_return$visited_steps
+  df_return$seen_after_week <- df_return$seen_after_week / df_return$visited_steps
+  df_return[is.nan(df_return$seen_before_week),]$seen_before_week <- 0
+  df_return[is.nan(df_return$seen_during_week),]$seen_during_week <- 0
+  df_return[is.nan(df_return$seen_after_week),]$seen_after_week <- 0
+  df_return[is.na(df_return$max_absolute_step),]$max_absolute_step <- 0
+  
+  # Aggregates and calculates social related data
+  log_new_debug("- Calculating aggregated social interactions...")
+  comments_particpant <- select(df_comments, author_id, short_code, week_number, step_number, likes, clean_words_number)
+  names(comments_particpant) <- c("learner_id", "short_code", "week_number", "step_number", "likes", "clean_words_number")
+  comments_aggregated <- comments_particpant %>%
+                           group_by(learner_id, short_code ) %>%
+                             summarize(number_social_interactions = n(),
+                                       total_words = sum(clean_words_number),
+                                       total_likes = sum(likes),
+                                       avg_words_comment = total_words/number_social_interactions)
+  df_return <- merge(df_return, select(comments_aggregated, short_code, learner_id, number_social_interactions, total_words, total_likes, avg_words_comment), c("short_code", "learner_id"), all.x = TRUE)
+  df_return[is.na(df_return$number_social_interactions),]$number_social_interactions <- 0
+  df_return[is.na(df_return$total_words),]$total_words <- 0
+  df_return[is.na(df_return$total_likes),]$total_likes <- 0
+  df_return[is.na(df_return$avg_words_comment),]$avg_words_comment <- 0
+  df_return$social_interactions_rate <- df_return$number_social_interactions / df_return$visited_steps
+  # df_return[is.nan(df_return$social_interactions_rate),]$social_interactions_rate <- 0
+  df_return[is.nan(df_return$social_interactions_rate),"social_interactions_rate"] <- 0
+  df_return$skipped_content <- ifelse(df_return$max_absolute_step != 0, (df_return$max_absolute_step - df_return$visited_steps) / df_return$max_absolute_step, 0)
+  
+  # Variables to predict
+  df_return$fully_participating_learner <- ifelse(df_return$completed > 0.5, 1, 0)
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - transform_participant_facts - Elapsed:", fstop_time[3], "s"))

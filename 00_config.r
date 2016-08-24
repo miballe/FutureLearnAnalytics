@@ -9,6 +9,9 @@
 
 suppressMessages(library(dplyr))
 suppressMessages(library(ggplot2))
+suppressMessages(library(tm))
+suppressMessages(library(stringi))
+suppressMessages(library(lubridate))
 
 ########## Global constants and settings ##########
 # Even if suffixes are originally matching FL conventions, the same names

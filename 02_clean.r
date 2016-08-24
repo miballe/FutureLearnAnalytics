@@ -72,6 +72,7 @@ clean_enrolments <- function(raw_enrolments) {
   return_df$learner_id <- factor(raw_enrolments$learner_id)
   return_df$raw_enrolments.learner_id <- NULL
   return_df$enrolled_at <- as.POSIXct(strptime(raw_enrolments$enrolled_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+  return_df$unenrolled_at <- as.POSIXct(strptime(raw_enrolments$unenrolled_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$role <- factor(raw_enrolments$role)
   return_df$fully_participated_at <- as.POSIXct(strptime(raw_enrolments$fully_participated_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
   return_df$purchased_statement_at <- as.POSIXct(strptime(raw_enrolments$purchased_statement_at, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
@@ -252,7 +253,8 @@ get_course_list <- function() {
 }
 
 get_unexpected_course_details <- function() {
-  ret_value <- select(df_course_details, short_code, week_number, step_number, week_start_date, week_end_date, total_days) %>% filter(total_days != 7)
+  ret_value <- select(df_course_details, short_code, week_number, step_number, week_start_date, week_end_date, total_days) %>% 
+                 filter(total_days != 7)
   return(ret_value)  
 }
 
