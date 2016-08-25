@@ -24,9 +24,9 @@ EXECUTE_SAVE_RAW_DATA <- FALSE
 EXECUTE_LOAD_RAW_DATA <- FALSE
 EXECUTE_DATA_CLEANING <- FALSE
 EXECUTE_SAVE_CLEAN_DATA <- FALSE
-EXECUTE_LOAD_CLEAN_DATA <- FALSE
-EXECUTE_DATA_TRANSFORMATION <- FALSE
-EXECUTE_SAVE_TRANSFORMED_DATA <- FALSE
+EXECUTE_LOAD_CLEAN_DATA <- TRUE
+EXECUTE_DATA_TRANSFORMATION <- TRUE
+EXECUTE_SAVE_TRANSFORMED_DATA <- TRUE
 EXECUTE_LOAD_TRANSFORMED_DATA <- TRUE
 
 # Global errors and warnings containers initalization
@@ -176,6 +176,7 @@ if(EXECUTE_DATA_TRANSFORMATION & length(execution_errors) == 0) {
   transform_default_tables()
   df_course_facts <- transform_course_facts()
   df_participant_facts <- transform_participant_facts()
+  df_total_events <- get_total_event_dates()
   
   cstop_time <- proc.time() - cstart_time
   log_new_info(paste("- END - SECTION - Process_Data_Transformation - Elapsed:", cstop_time[3], "s"))

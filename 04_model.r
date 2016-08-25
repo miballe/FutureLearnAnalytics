@@ -31,7 +31,7 @@ update_date_field_na <- function(df_change, fields, cut_date) {
 
 # Filters the default data frames by removing all activity, entries or values beyond the cut_week end date
 # for the selected course list
-filter_default_tables_cut_date <- function(course_list, cut_week) {
+filter_default_tables_cut_week <- function(course_list, cut_week) {
   fstart_time <- proc.time()
   log_new_info("- START - filter_default_tables_cut_date")
   
@@ -113,26 +113,6 @@ filter_default_tables_cut_date <- function(course_list, cut_week) {
 }
 
 
-# Look for participant's activity after the designated dates for each week and sets a boolean
-# value accordingly
-get_participant_activity_boolean <- function(participant_entry, field) {
-  
-  cut_date <- ifelse(field == "one_week_ahead", participant_entry$date_one_week_ahead, participant_entry$date_two_weeks_ahead)
-  course_code <- as.character(participant_entry$short_code)
-  participant_id <- as.character(participant_entry$learner_id)
-  
-  df_activity <- select(df_step_activity, short_code, learner_id, first_visited_at, last_completed_at) %>%
-                   filter(short_code == course_code & learner_id == participant_id &
-                            (first_visited_at > cut_date | last_completed_at > cut_date))
-  if(nrow(df_activity) > 0) { return(1) }
-  
-  # TODO: Test other tables and conditions!    *******************************************
-  
-  return(0)
-}
-
-
-
 # This function claculates a boolean variable specifying if there is any activity beyond the
 # week prediction end date for each user, and return the data frame with two new fields
 # one and two weeks ahead.
@@ -143,9 +123,8 @@ get_prediction_weeks_activity <- function(df_prediction, week_prediction) {
   course_list <- unique(df_prediction$short_code)
   df_prediction$one_week_ahead <- NA
   df_prediction$two_weeks_ahead <- NA
-  df_prediction$date_one_week_ahead <- as.POSIXct("1960-01-01")
-  df_prediction$date_two_weeks_ahead <- as.POSIXct("1960-01-01")
-  
+  df_prediction$fully_participating_learner <- NULL
+
   for(course_code in course_list) {
     log_new_debug(paste("- Calculating the cut date...", course_code))
     cut_date <- select(df_course_details, short_code, week_number, week_end_date) %>% 
@@ -155,12 +134,41 @@ get_prediction_weeks_activity <- function(df_prediction, week_prediction) {
             select(max_end_date)
     cut_date <- as.POSIXct(cut_date$max_end_date[1])
     
-    df_prediction[df_prediction$short_code == course_code, "date_one_week_ahead"] <- cut_date + weeks(1)
-    df_prediction[df_prediction$short_code == course_code, "date_two_weeks_ahead"] <- cut_date + weeks(2)
+    log_new_debug(paste("- Extracting events week 1...", course_code))
+    course_events <- df_total_events %>%
+                       filter(short_code == course_code & event_date > cut_date + weeks(1) & event_date < end_date) %>%
+                         group_by(short_code, learner_id) %>%
+                           summarize(number_events = n())
+
+    log_new_debug(paste("- Assigning predictor week 1...", course_code))
+    course_events$week_one <- 1
+    df_prediction <- merge(df_prediction, select(course_events, short_code, learner_id, week_one), c("short_code", "learner_id"), all.x = TRUE)
+    df_prediction[!is.na(df_prediction$week_one), "one_week_ahead"] <- df_prediction[!is.na(df_prediction$week_one), "week_one"]
+    df_prediction$week_one <- NULL
+    
+    log_new_debug(paste("- Extracting events week 2...", course_code))
+    course_events <- df_total_events %>%
+                       filter(short_code == course_code &  event_date > cut_date + weeks(2) & event_date < end_date) %>%
+                         group_by(short_code, learner_id) %>%
+                           summarize(number_events = n())
+
+    log_new_debug(paste("- Assigning predictor week 2...", course_code))
+    course_events$week_two <- 1
+    df_prediction <- merge(df_prediction, select(course_events, short_code, learner_id, week_two), c("short_code", "learner_id"), all.x = TRUE)
+    df_prediction[!is.na(df_prediction$week_two), "two_weeks_ahead"] <- df_prediction[!is.na(df_prediction$week_two), "week_two"]
+    df_prediction$week_two <- NULL
   }
-  
-  df_prediction[,"one_week_ahead"] <- apply(df_prediction, 1, FUN = get_participant_activity_boolean, "one_week_ahead")
-  df_prediction[,"two_weeks_ahead"] <- apply(df_prediction, 1, FUN = get_participant_activity_boolean, "two_weeks_ahead")
+
+  df_prediction[is.na(df_prediction$one_week_ahead), "one_week_ahead"] <- 0
+  df_prediction[is.na(df_prediction$two_weeks_ahead), "two_weeks_ahead"] <- 0
+
+  end_certificate <- select(df_participant_facts, short_code, learner_id, fully_participating_learner) %>%
+                       filter(short_code %in% course_list & fully_participating_learner == 1)
+  df_prediction <- merge(df_prediction, end_certificate, c("short_code", "learner_id"), all.x = TRUE)
+  df_prediction$certificate <- 0
+  df_prediction[is.na(df_prediction$fully_participating_learner), "fully_participating_learner"] <- 0
+  df_prediction$certificate <- df_prediction$fully_participating_learner
+  df_prediction$fully_participating_learner <- NULL
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - filter_default_tables_cut_date - Elapsed:", fstop_time[3], "s"))
@@ -197,16 +205,12 @@ get_participants_predictive_data <- function(course_list, cut_week) {
   }
   
   load_clean_data_file(DATA_CLEAN)                      # Loads again the clean data for a new filtered transformation
-  filter_default_tables_cut_date(course_list, cut_week) # Filters the default datasets 
+  filter_default_tables_cut_week(course_list, cut_week) # Filters the default datasets 
   remove_admin_activity()                               # Removes the non-learner activity
   transform_default_tables()                            # Apply the same transformations as in the general tranformation process
   df_return <- transform_participant_facts()            # Calculates the participants facts with filtered data
-  
-  load_clean_data_file(DATA_CLEAN)                                 # Loads the data again to extract activity beyond the cut_date
-  df_return <- get_prediction_weeks_activity(df_return, cut_week)  # Calculates the variables to predict
+  df_return <- get_prediction_weeks_activity(df_return, cut_week)  # Calculates the variables to predict from the total events table
 
-  # df_return$fully_participating_learner merge with df_participant_facts to get the last outcome
-  
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - get_predictive_data - Elapsed:", fstop_time[3], "s"))
   return(df_return)
@@ -217,9 +221,19 @@ get_participants_predictive_data <- function(course_list, cut_week) {
 
 ########## Predictive Models Operations ##########
 
-predict_fpl_logreg <- function() {
-  training_courses <- c("research-project-1", "research-project-2", "research-project-3", "research-project-4")
-  training_set <- get_participant_facts_training_set(training_courses)
+predict_fpl_logreg <- function(course_list, last_activity_week) {
+  course_list <- c("research-project-1", "research-project-2", "research-project-3", "research-project-4", "research-project-5")
+  last_activity_week <- 4
+  features_variables <- c("short_code", "learner_id", "days_enrolled_before_start", "unenrolled", "purchased_statement",
+                           "max_week", "max_absolute_step", "visited", "completed", "total_likes",
+                           "avg_words_comment", "social_interactions_rate", "skipped_content",
+                           "one_week_ahead", "two_weeks_ahead", "certificate")
+  
+  total_data <- get_participants_predictive_data(course_list, last_activity_week)
+  total_data <- total_data[,features_variables] %>% arrange(short_code, learner_id)
+  # Partition between training and test
+  
+  
   
   logreg = glm(fully_participating_learner ~ ., family=binomial(logit), data=training_set)
   

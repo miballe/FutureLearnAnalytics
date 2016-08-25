@@ -211,6 +211,69 @@ transform_participant_facts <- function() {
 }
 
 
+get_total_event_dates <- function() {
+  fstart_time <- proc.time()
+  log_new_info("- START - get_total_event_dates")
+  
+  df_return <- data.frame()
+
+  tmp_read <- select(df_step_activity, short_code, learner_id, first_visited_at, last_completed_at)
+  tmp_subset <- select(tmp_read, short_code, learner_id, first_visited_at)
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "step_visit"
+  df_return <- tmp_subset
+  tmp_subset <- select(tmp_read, short_code, learner_id, last_completed_at) %>% filter(!is.na(last_completed_at))
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "step_complete"
+  df_return <- rbind(df_return, tmp_subset)
+  
+  tmp_subset <- select(df_comments, short_code, author_id, timestamp)
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "comment"
+  df_return <- rbind(df_return, tmp_subset)
+  
+  tmp_read <- select(df_enrolments, short_code, learner_id, unenrolled_at, fully_participated_at, purchased_statement_at)
+  tmp_subset <- select(tmp_read, short_code, learner_id, unenrolled_at) %>% filter(!is.na(unenrolled_at))
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "unenrollment"
+  df_return <- rbind(df_return, tmp_subset)
+  tmp_subset <- select(tmp_read, short_code, learner_id, fully_participated_at) %>% filter(!is.na(fully_participated_at))
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "certificate"
+  df_return <- rbind(df_return, tmp_subset)
+  tmp_subset <- select(tmp_read, short_code, learner_id, purchased_statement_at) %>% filter(!is.na(purchased_statement_at))
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "statement"
+  df_return <- rbind(df_return, tmp_subset)
+  
+  tmp_read <- select(df_pr_assignments, short_code, author_id, first_viewed_at, submitted_at)
+  tmp_subset <- select(tmp_read, short_code, author_id, first_viewed_at) %>% filter(!is.na(first_viewed_at))
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "assignment_view"
+  df_return <- rbind(df_return, tmp_subset)
+  tmp_subset <- select(tmp_read, short_code, author_id, submitted_at) %>% filter(!is.na(submitted_at))
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "assignment_submit"
+  df_return <- rbind(df_return, tmp_subset)
+  
+  tmp_subset <- select(df_pr_reviews, short_code, reviewer_id, created_at)
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "assignment_review"
+  df_return <- rbind(df_return, tmp_subset)
+  
+  tmp_subset <- select(df_question_response, short_code, learner_id, submitted_at)
+  names(tmp_subset) <- c("short_code", "learner_id", "event_date")
+  tmp_subset$event_type <- "question_response"
+  df_return <- rbind(df_return, tmp_subset)
+  
+  df_return <- merge(df_return, select(df_course_list, short_code, start_date, end_date), "short_code", all.x = TRUE)
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - get_total_event_dates - Elapsed:", fstop_time[3], "s"))
+  return(df_return)
+}
+
+
 
 ########## File read/write Operations ##########
 save_transformed_data_file <- function(objects, file_name) {
