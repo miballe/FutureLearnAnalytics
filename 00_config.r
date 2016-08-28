@@ -12,6 +12,7 @@ suppressMessages(library(ggplot2))
 suppressMessages(library(tm))
 suppressMessages(library(stringi))
 suppressMessages(library(lubridate))
+suppressMessages(library(caret))
 
 ########## Global constants and settings ##########
 # Even if suffixes are originally matching FL conventions, the same names

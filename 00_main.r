@@ -17,6 +17,8 @@ source("01_load.r")
 source("02_clean.r")
 source("03_transform.r")
 source("04_model.r")
+source("ggtheme_data.r")
+source("ggtheme_stata.r")
 
 ########## Execution Sequence (enable/disable) ##########
 EXECUTE_LOAD_DOWNLOADED_DATA <- FALSE
@@ -24,9 +26,9 @@ EXECUTE_SAVE_RAW_DATA <- FALSE
 EXECUTE_LOAD_RAW_DATA <- FALSE
 EXECUTE_DATA_CLEANING <- FALSE
 EXECUTE_SAVE_CLEAN_DATA <- FALSE
-EXECUTE_LOAD_CLEAN_DATA <- TRUE
-EXECUTE_DATA_TRANSFORMATION <- TRUE
-EXECUTE_SAVE_TRANSFORMED_DATA <- TRUE
+EXECUTE_LOAD_CLEAN_DATA <- FALSE
+EXECUTE_DATA_TRANSFORMATION <- FALSE
+EXECUTE_SAVE_TRANSFORMED_DATA <- FALSE
 EXECUTE_LOAD_TRANSFORMED_DATA <- TRUE
 
 # Global errors and warnings containers initalization

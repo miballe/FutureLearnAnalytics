@@ -136,7 +136,7 @@ get_prediction_weeks_activity <- function(df_prediction, week_prediction) {
     
     log_new_debug(paste("- Extracting events week 1...", course_code))
     course_events <- df_total_events %>%
-                       filter(short_code == course_code & event_date > cut_date + weeks(1) & event_date < end_date) %>%
+                       filter(short_code == course_code & event_date > cut_date & event_date < end_date) %>%
                          group_by(short_code, learner_id) %>%
                            summarize(number_events = n())
 
@@ -148,7 +148,7 @@ get_prediction_weeks_activity <- function(df_prediction, week_prediction) {
     
     log_new_debug(paste("- Extracting events week 2...", course_code))
     course_events <- df_total_events %>%
-                       filter(short_code == course_code &  event_date > cut_date + weeks(2) & event_date < end_date) %>%
+                       filter(short_code == course_code &  event_date > cut_date + weeks(1) & event_date < end_date) %>%
                          group_by(short_code, learner_id) %>%
                            summarize(number_events = n())
 
@@ -162,11 +162,14 @@ get_prediction_weeks_activity <- function(df_prediction, week_prediction) {
   df_prediction[is.na(df_prediction$one_week_ahead), "one_week_ahead"] <- 0
   df_prediction[is.na(df_prediction$two_weeks_ahead), "two_weeks_ahead"] <- 0
 
+  # Extracts the cetificate info from the participant facts by obtaining the fully_participating_learner which
+  # indicates whether the user is eligible or not for certificate. The term certificate is used in the prediction
+  # model to ease the comparison to other studies.
   end_certificate <- select(df_participant_facts, short_code, learner_id, fully_participating_learner) %>%
                        filter(short_code %in% course_list & fully_participating_learner == 1)
   df_prediction <- merge(df_prediction, end_certificate, c("short_code", "learner_id"), all.x = TRUE)
   df_prediction$certificate <- 0
-  df_prediction[is.na(df_prediction$fully_participating_learner), "fully_participating_learner"] <- 0
+  df_prediction[is.na(df_prediction$fully_participating_learner), "fully_participating_learner"] <- 0  # default value to ensure no NAs are left
   df_prediction$certificate <- df_prediction$fully_participating_learner
   df_prediction$fully_participating_learner <- NULL
   
@@ -192,6 +195,14 @@ get_participants_predictive_data <- function(course_list, cut_week) {
   fstart_time <- proc.time()
   log_new_info("- START - get_predictive_data")
   
+  features_variables <- c("short_code", "learner_id",
+                          # Add variables from this point
+                          "days_enrolled_before_start", "unenrolled", "purchased_statement",
+                          "max_week", "max_absolute_step", "visited", "completed", "total_likes",
+                          "avg_words_comment", "social_interactions_rate", "skipped_content",
+                          # Don't modify the folliwing ones
+                          "one_week_ahead", "two_weeks_ahead", "certificate")
+  
   # Initializes the return object in case the basic conditions are not met
   df_return <- data.frame()
   
@@ -210,6 +221,8 @@ get_participants_predictive_data <- function(course_list, cut_week) {
   transform_default_tables()                            # Apply the same transformations as in the general tranformation process
   df_return <- transform_participant_facts()            # Calculates the participants facts with filtered data
   df_return <- get_prediction_weeks_activity(df_return, cut_week)  # Calculates the variables to predict from the total events table
+  
+  df_return <- df_return[,features_variables] %>% arrange(short_code, learner_id)
 
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - get_predictive_data - Elapsed:", fstop_time[3], "s"))
@@ -217,28 +230,142 @@ get_participants_predictive_data <- function(course_list, cut_week) {
 }
 
 
+# In this function the predictive data is partitioned in training and test set, according to the chosen method.
+partition_participants_predictive_data <- function(predictive_data, partition_method) {
+  fstart_time <- proc.time()
+  log_new_info("- START - partition_participants_predictive_data")
+  
+  list_return <- list()
+  random_training_percentage <- 0.75
+  course_list <- unique(predictive_data$short_code)
+  
+  # Verifies if the method is random or a course name. In the second case it is verified against the course list
+  # coming in the predictive data. If those conditions are not met, an error is returned.
+  if(partition_method == "random") {
+    set.seed(71)
+    index_training <- createDataPartition(y = predictive_data$certificate, p = random_training_percentage, list = FALSE)
+    training_part <- total_data[index_training,]
+    test_part <- total_data[-index_training,]
+    list_return <- list(training_data = training_part, test_data = test_part)
+  } else if(partition_method %in% course_list) {
+    course_list <- setdiff(course_list, partition_method)
+    training_part <- predictive_data[predictive_data$short_code %in% course_list,]
+    test_part <- predictive_data[predictive_data$short_code == partition_method,]
+    list_return <- list(training_data = training_part, test_data = test_part)
+  } else {
+    list_return <- list(error = "Expected \"random\" or a valid course short code within the predictive data")
+  }
+
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - partition_participants_predictive_data - Elapsed:", fstop_time[3], "s"))
+  return(list_return)
+}
 
 
 ########## Predictive Models Operations ##########
 
-predict_fpl_logreg <- function(course_list, last_activity_week) {
+# Function that creates a Logistic Regression model according to the passed parameters.
+# The data structure is expected to have always two identification sets at the beginning (short_code, learner_id)
+# and at the end the variables to predict. Everything else in between are predicting features as numeric values.
+create_train_participants_model_logreg <- function(training_data, prediction_variable) {
+  fstart_time <- proc.time()
+  log_new_info("- START - create_train_participants_model_logreg")
+  
+  columns_to_remove <- c("short_code", "learner_id", "one_week_ahead", "two_weeks_ahead", "certificate")
+  
+  # TODO: Consider training the model for X-weeks-ahead including the certificate. However, such variable won't be available at test. Check!
+  
+  if(prediction_variable == "certificate") {
+    columns_to_remove <- setdiff(columns_to_remove, "certificate")
+    model_return = glm(certificate ~ ., family = binomial(logit), data = training_data[,!names(training_data) %in% columns_to_remove])
+    return(model_return)
+  } else if(prediction_variable == "one_week_ahead") {
+    columns_to_remove <- setdiff(columns_to_remove, "one_week_ahead")
+    model_return = glm(one_week_ahead ~ ., family = binomial(logit), data = training_data[,!names(training_data) %in% columns_to_remove])
+    return(model_return)
+  } else if(prediction_variable == "two_weeks_ahead") {
+    columns_to_remove <- setdiff(columns_to_remove, "two_weeks_ahead")
+    model_return = glm(two_weeks_ahead ~ ., family = binomial(logit), data = training_data[,!names(training_data) %in% columns_to_remove])
+    return(model_return)
+  }
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - create_train_participants_model_logreg - Elapsed:", fstop_time[3], "s"))
+  return(NULL)
+}
+
+
+predict_participants_model <- function(prediction_model, test_data, prediction_variable) {
+  fstart_time <- proc.time()
+  log_new_info("- START - predict_participants_model")
+  
+  columns_to_remove <- c("short_code", "learner_id", "one_week_ahead", "two_weeks_ahead", "certificate")
+  
+  if(prediction_variable == "certificate") {
+    columns_to_remove <- setdiff(columns_to_remove, "certificate")
+  } else if(prediction_variable == "one_week_ahead") {
+    columns_to_remove <- setdiff(columns_to_remove, "one_week_ahead")
+  } else if(prediction_variable == "two_weeks_ahead") {
+    columns_to_remove <- setdiff(columns_to_remove, "two_weeks_ahead")
+  }
+  
+  predicted_data = data.frame(variable_prob = predict(prediction_model, newdata = test_data[,!names(test_data) %in% columns_to_remove], type="response"))
+  predicted_data$short_code <- test_data$short_code
+  predicted_data$learner_id <- test_data$learner_id
+
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - predict_participants_model - Elapsed:", fstop_time[3], "s"))
+  return(predicted_data)
+}
+
+
+# Function to test the models
+manually_executed_prediction <- function(course_list, last_activity_week) {
   course_list <- c("research-project-1", "research-project-2", "research-project-3", "research-project-4", "research-project-5")
   last_activity_week <- 4
-  features_variables <- c("short_code", "learner_id", "days_enrolled_before_start", "unenrolled", "purchased_statement",
-                           "max_week", "max_absolute_step", "visited", "completed", "total_likes",
-                           "avg_words_comment", "social_interactions_rate", "skipped_content",
-                           "one_week_ahead", "two_weeks_ahead", "certificate")
-  
+
   total_data <- get_participants_predictive_data(course_list, last_activity_week)
-  total_data <- total_data[,features_variables] %>% arrange(short_code, learner_id)
-  # Partition between training and test
+  list_data <- partition_participants_predictive_data(total_data, "research-project-5")
+  model_logreg_cert <- create_train_participants_model_logreg(list_data$training_data, "certificate")
+  predicted_data <- predict_participants_model(model_logreg_cert, list_data$test_data, "certificate")
   
+  # logreg = glm(one_week_ahead ~ ., family = binomial(logit), data = training_data)
+  # bst <- xgboost(data = as.matrix(training_data[,1:11]), label = as.matrix(training_data[,12]), max_depth = 2, eta = 1, nrounds = 2, nthread = 2, objective = "binary:logistic", verbose = 2)
   
+  cut_values <- seq(.01,.99,length=1000)
+  conf_matrix_values <- data.frame(cut_values)
+  conf_matrix_values$sensitivity <- 0
+  conf_matrix_values$specificity <- 0
+  conf_matrix_values$dropout <- 0
+  conf_matrix_values$dist <- 0
+  dropout_reference <- 1 - sum(list_data$training_data$certificate) / nrow(list_data$training_data)
+  for(cvalue in 1:length(cut_values)) {
+    predicted_data$certificate <- ifelse(predicted_data$variable_prob > cut_values[[cvalue]], 1, 0)
+    # predicted_data$one_week_ahead <- ifelse(predicted_data$predicted_data > cut_values[[cvalue]], 1, 0)
+    conf_matrix <- confusionMatrix(data = predicted_data$certificate, reference = list_data$test_data$certificate)
+    # conf_matrix <- confusionMatrix(data = predicted_data$one_week_ahead, reference = test_data$one_week_ahead)
+    conf_matrix_values[cvalue, "sensitivity"] <- conf_matrix[[4]][[1]]
+    conf_matrix_values[cvalue, "specificity"] <- conf_matrix[[4]][[2]]
+    conf_matrix_values[cvalue, "dropout"] <- (conf_matrix[[2]][[1]] + conf_matrix[[2]][[3]]) / (conf_matrix[[2]][[1]] + conf_matrix[[2]][[2]] + conf_matrix[[2]][[3]] + conf_matrix[[2]][[4]])
+    conf_matrix_values[cvalue, "dist"] <- sqrt( (1 - conf_matrix_values[cvalue, "sensitivity"])^2 + (1 - conf_matrix_values[cvalue, "specificity"])^2 )
+  }
   
-  logreg = glm(fully_participating_learner ~ ., family=binomial(logit), data=training_set)
-  
-  hist(logreg$fitted.values)
-  
+  conf_matrix_values$abs_diff <- abs(conf_matrix_values$sensitivity - conf_matrix_values$specificity)
+  conf_matrix_values$dropout_diff <- abs(conf_matrix_values$dropout - dropout_reference)
+  min_cut_value <- which.min(conf_matrix_values$abs_diff)
+  min_dropout_diff <- which.min(conf_matrix_values$dropout_diff)
+  min_dist <- which.min(conf_matrix_values$dist)
+  ggplot(conf_matrix_values, aes(cut_values)) + 
+    theme_stata() +
+    geom_line(aes(y = sensitivity, color = "Sensitivity", linetype = "Sensitivity"), size = 1) + 
+    geom_line(aes(y = specificity, color = "Specificity", linetype = "Specificity"), size = 1) +
+    scale_linetype_manual("", values = c("Sensitivity" = 1, "Specificity" = 4)) +
+    labs(title = "LogRegression Sensitivity and Specificity", x = "Cut Values", y = "Value", color = "")
+  ggplot(conf_matrix_values, aes(1 - specificity)) + 
+    theme_stata() + 
+    geom_line(aes(y = sensitivity), linetype = 8, colour = "red", size = 1) +
+    ggtitle("LogRegression ROC For Each Predicted Week") + 
+    labs(x = "False Positives Rate", y = "True Positives Rate")
 }
 
 
