@@ -40,6 +40,8 @@ execution_warnings <- list()
 sstart_time <- proc.time()
 log_new_info("***** MAIN_EXECUTION START *****")
 
+predictive_data <- list()
+predictive_models <- list()
 
 ########## Load Downloaded Data Section ##########
 # Functions from 01_load.r

@@ -43,13 +43,13 @@ log4r::level(logger) <- "DEBUG"
 # potential "debug" function conflict.
 log_new_error <- function(error_message) {
   log4r::error(logger, error_message)
-  execution_errors[[length(execution_errors) + 1]] <- error_message
+  execution_errors[[length(execution_errors) + 1]] <<- error_message
   print(paste("ERROR", error_message))
 }
 
 log_new_warning <- function(warning_message) {
   log4r::warn(logger, warning_message)
-  execution_warnings[[length(execution_warnings) + 1]] <- warning_message
+  execution_warnings[[length(execution_warnings) + 1]] <<- warning_message
   print(paste("WARNING", warning_message))
 }
 
