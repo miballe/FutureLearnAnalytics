@@ -36,6 +36,8 @@ vignettes/*.pdf
 /Data_Clean/*.RData
 /Data_Transformed/*.csv
 /Data_Transformed/*.RData
+/Data_Models/*.csv
+/Data_Models/*.RData
 
 # Work folders created by jupyter and Kernels
 /.*/*

@@ -304,21 +304,45 @@ create_train_participants_model_logreg <- function(training_data, prediction_var
 }
 
 
-predict_participants_model <- function(prediction_model, test_data, prediction_variable) {
+# Function that creates an XGBoost model according to the passed parameters.
+# The data structure is expected to have always two identification sets at the beginning (short_code, learner_id)
+# and at the end the variables to predict. Everything else in between are predicting features as numeric values.
+create_train_participants_model_xgboost <- function(training_data, prediction_variable) {
+  fstart_time <- proc.time()
+  log_new_info("- START - create_train_participants_model_xgboost")
+  
+  columns_to_remove <- c("short_code", "learner_id", "one_week_ahead", "two_weeks_ahead", "certificate")
+  
+  # TODO: Consider training the model for X-weeks-ahead including the certificate. However, such variable won't be available at test. Check!
+  
+  if(prediction_variable == "certificate") {
+    model_return = xgboost(data = as.matrix(training_data[,!names(training_data) %in% columns_to_remove]), label = as.matrix(training_data[,"certificate"]), eval_metric = "auc", max_depth = 8, nrounds = 10, objective = "binary:logistic")
+    return(model_return)
+  } else if(prediction_variable == "one_week_ahead") {
+    model_return = xgboost(data = as.matrix(training_data[,!names(training_data) %in% columns_to_remove]), label = as.matrix(training_data[,"one_week_ahead"]), eval_metric = "auc", max_depth = 8, nrounds = 2, objective = "binary:logistic")
+    return(model_return)
+  } else if(prediction_variable == "two_weeks_ahead") {
+    model_return = xgboost(data = as.matrix(training_data[,!names(training_data) %in% columns_to_remove]), label = as.matrix(training_data[,"two_weeks_ahead"]), eval_metric = "auc", max_depth = 8, nrounds = 2, objective = "binary:logistic")
+    return(model_return)
+  }
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - create_train_participants_model_xgboost - Elapsed:", fstop_time[3], "s"))
+  return(NULL)
+}
+
+predict_participants_model <- function(prediction_model, test_data, prediction_variable, model_type) {
   fstart_time <- proc.time()
   log_new_info("- START - predict_participants_model")
   
   columns_to_remove <- c("short_code", "learner_id", "one_week_ahead", "two_weeks_ahead", "certificate")
   
-  if(prediction_variable == "certificate") {
-    columns_to_remove <- setdiff(columns_to_remove, "certificate")
-  } else if(prediction_variable == "one_week_ahead") {
-    columns_to_remove <- setdiff(columns_to_remove, "one_week_ahead")
-  } else if(prediction_variable == "two_weeks_ahead") {
-    columns_to_remove <- setdiff(columns_to_remove, "two_weeks_ahead")
+  if(model_type == "logreg"){
+    predicted_data = data.frame(variable_prob = predict(prediction_model, newdata = test_data[,!names(test_data) %in% columns_to_remove], type="response"))
+  } else if(model_type == "xgboost") {
+    xgb_test_data <- as.matrix(test_data[,!names(test_data) %in% columns_to_remove])
+    predicted_data = data.frame(variable_prob = predict(prediction_model, newdata = xgb_test_data))
   }
-  
-  predicted_data = data.frame(variable_prob = predict(prediction_model, newdata = test_data[,!names(test_data) %in% columns_to_remove], type="response"))
   predicted_data$short_code <- test_data$short_code
   predicted_data$learner_id <- test_data$learner_id
 
@@ -329,52 +353,207 @@ predict_participants_model <- function(prediction_model, test_data, prediction_v
 
 
 # Function to test the models
-manually_executed_prediction <- function() {
+calculate_models_predictions <- function() {
+  fstart_time <- proc.time()
+  log_new_info("- START - manually_executed_prediction")
+  
   course_list <- c("research-project-1", "research-project-2", "research-project-3", "research-project-4", "research-project-5")
   predictive_variables <- c("certificate", "one_week_ahead", "two_weeks_ahead")
   short_name <- "rp"
   test_set_partition <- "research-project-5"
   
+  log_new_debug("- Starting the new prediction results collection")
   for(n_week in 1:7) {
-    total_data <- get_participants_predictive_data(course_list, n_week)
-    predictive_data[[ length(predictive_data) + 1 ]] <<- total_data
-    names(predictive_data[length(predictive_data)]) <- paste(short_name, "_w", n_week, sep = "")
-    list_data <- partition_participants_predictive_data(total_data, test_set_partition)
-    model_logreg_cert <- create_train_participants_model_logreg(list_data$training_data, "certificate")
-    predicted_values <- predict_participants_model(model_logreg_cert, list_data$test_data, "certificate")
+    log_new_debug(paste("- Processing predictive data+models for the week", n_week))
+    for(p_variable in predictive_variables){
+      log_new_debug(paste("- Processing predictive data+models for the dependent variable", p_variable))
+      # if the predictive data is already in the list, the item is returned. Otherwise, it is fully calculated.
+      if(paste(short_name, "_w", n_week, sep = "") %in% names(predictive_data)) {
+        log_new_debug("- Predictive Data - Found in the global list")
+        total_data <- predictive_data[[ paste(short_name, "_w", n_week, sep = "") ]]
+      } else {
+        log_new_debug("- Predictive Data - Calculating...")
+        total_data <- get_participants_predictive_data(course_list, n_week)
+        predictive_data[[ length(predictive_data) + 1 ]] <<- total_data
+        names(predictive_data)[length(predictive_data)] <<- paste(short_name, "_w", n_week, sep = "")
+        log_new_debug("- Predictive Data - Added to the global list")
+      }
+      # Partitions the predictive data in Training and Test set, both contained in a list
+      log_new_debug(paste("- Data with", nrow(total_data), "observations to be partitioned by", test_set_partition))
+      list_data <- partition_participants_predictive_data(total_data, test_set_partition) 
+      log_new_debug(paste("- Training a new LogReg model to predict", p_variable, "with", nrow(list_data$training_data), "observations"))
+      
+      # Trains the LogReg model for the combination week-variable and then saves it in the global model list
+      pred_model <- create_train_participants_model_logreg(list_data$training_data, p_variable)
+      predictive_models[[ length(predictive_models) + 1 ]] <<- pred_model
+      names(predictive_models)[length(predictive_models)] <<- paste(short_name, "_w", n_week, "_logreg_", p_variable, "_model", sep = "")
+      # Tests the LogReg model for the combination week-variable and saves the result in the global model list
+      predicted_values <- predict_participants_model(pred_model, list_data$test_data, p_variable, "logreg")
+      predictive_models[[ length(predictive_models) + 1 ]] <<- predicted_values
+      names(predictive_models)[length(predictive_models)] <<- paste(short_name, "_w", n_week, "_logreg_", p_variable, "_prediction", sep = "")
     
-    # logreg = glm(one_week_ahead ~ ., family = binomial(logit), data = training_data)
-    # bst <- xgboost(data = as.matrix(training_data[,1:11]), label = as.matrix(training_data[,12]), max_depth = 2, eta = 1, nrounds = 2, nthread = 2, objective = "binary:logistic", verbose = 2)
+      # Trains the LogReg model for the combination week-variable and then saves it in the global model list
+      pred_model <- create_train_participants_model_xgboost(list_data$training_data, p_variable)
+      predictive_models[[ length(predictive_models) + 1 ]] <<- pred_model
+      names(predictive_models)[length(predictive_models)] <<- paste(short_name, "_w", n_week, "_xgboost_", p_variable, "_model", sep = "")
+      # Tests the LogReg model for the combination week-variable and saves the result in the global model list
+      predicted_values <- predict_participants_model(pred_model, list_data$test_data, p_variable, "xgboost")
+      predictive_models[[ length(predictive_models) + 1 ]] <<- predicted_values
+      names(predictive_models)[length(predictive_models)] <<- paste(short_name, "_w", n_week, "_xgboost_", p_variable, "_prediction", sep = "")
+    }
   }
-
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - manually_executed_prediction - Elapsed:", fstop_time[3], "s"))
 }
 
 
-validate_predictive_models <- function() {
+calculate_allweeks_model_roc <- function(pred_variable, model_type) {
+  fstart_time <- proc.time()
+  log_new_info("- START - calculate_allweeks_model_roc")
   
-  cut_values <- seq(.01,.99,length=1000)
-  conf_matrix_values <- data.frame(cut_values)
-  conf_matrix_values$sensitivity <- 0
-  conf_matrix_values$specificity <- 0
-  conf_matrix_values$dropout <- 0
-  conf_matrix_values$dist <- 0
-  dropout_reference <- 1 - sum(list_data$training_data$certificate) / nrow(list_data$training_data)
-  for(cvalue in 1:length(cut_values)) {
-    predicted_values$certificate <- ifelse(predicted_values$variable_prob > cut_values[[cvalue]], 1, 0)
-    # predicted_values$one_week_ahead <- ifelse(predicted_values$predicted_values > cut_values[[cvalue]], 1, 0)
-    conf_matrix <- confusionMatrix(data = predicted_values$certificate, reference = list_data$test_data$certificate)
-    # conf_matrix <- confusionMatrix(data = predicted_values$one_week_ahead, reference = test_data$one_week_ahead)
-    conf_matrix_values[cvalue, "sensitivity"] <- conf_matrix[[4]][[1]]
-    conf_matrix_values[cvalue, "specificity"] <- conf_matrix[[4]][[2]]
-    conf_matrix_values[cvalue, "dropout"] <- (conf_matrix[[2]][[1]] + conf_matrix[[2]][[3]]) / (conf_matrix[[2]][[1]] + conf_matrix[[2]][[2]] + conf_matrix[[2]][[3]] + conf_matrix[[2]][[4]])
-    conf_matrix_values[cvalue, "dist"] <- sqrt( (1 - conf_matrix_values[cvalue, "sensitivity"])^2 + (1 - conf_matrix_values[cvalue, "specificity"])^2 )
+  for(n_week in 1:7) {
+    pred_name <- paste("rp_w", n_week, "_", model_type, "_", pred_variable, "_prediction", sep = "")
+    prediction_data <- predictive_models[[pred_name]]
+    test_data <- predictive_data[[paste("rp_w", n_week, sep = "")]]
+    ftest_data <- test_data[test_data$short_code == "research-project-5", pred_variable]
+    cut_values <- seq(.01,.99,length=1000)
+    conf_matrix_values <- data.frame(cut_values)
+    conf_matrix_values$sensitivity <- 0
+    conf_matrix_values$specificity <- 0
+    conf_matrix_values$dropout <- 0
+    conf_matrix_values$dist <- 0
+    for(cvalue in 1:length(cut_values)) {
+      predicted_values <- ifelse(prediction_data$variable_prob > cut_values[[cvalue]], 1, 0)
+      conf_matrix <- confusionMatrix(data = predicted_values, reference = ftest_data)
+      conf_matrix_values[cvalue, "sensitivity"] <- conf_matrix[[4]][[1]]
+      conf_matrix_values[cvalue, "specificity"] <- conf_matrix[[4]][[2]]
+      conf_matrix_values[cvalue, "dropout"] <- (conf_matrix[[2]][[1]] + conf_matrix[[2]][[3]]) / (conf_matrix[[2]][[1]] + conf_matrix[[2]][[2]] + conf_matrix[[2]][[3]] + conf_matrix[[2]][[4]])
+      conf_matrix_values[cvalue, "dist"] <- sqrt( (1 - conf_matrix_values[cvalue, "sensitivity"])^2 + (1 - conf_matrix_values[cvalue, "specificity"])^2 )
+    }
+    predictive_rocs[[ length(predictive_rocs) + 1 ]] <<- conf_matrix_values
+    names(predictive_rocs)[length(predictive_rocs)] <<- paste(model_type, "_", pred_variable, "_w", n_week, sep = "")
   }
   
-  conf_matrix_values$abs_diff <- abs(conf_matrix_values$sensitivity - conf_matrix_values$specificity)
-  conf_matrix_values$dropout_diff <- abs(conf_matrix_values$dropout - dropout_reference)
-  min_cut_value <- which.min(conf_matrix_values$abs_diff)
-  min_dropout_diff <- which.min(conf_matrix_values$dropout_diff)
-  min_dist <- which.min(conf_matrix_values$dist)
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - calculate_allweeks_model_roc - Elapsed:", fstop_time[3], "s"))
+}
+
+
+
+calculate_all_rocs <- function() {
+  fstart_time <- proc.time()
+  log_new_info("- START - calculate_all_rocs")
+  
+  model_types <- c("logreg", "xgboost")
+  pred_variables <- c("certificate", "one_week_ahead", "two_weeks_ahead")
+  
+  for(m_type in model_types) {
+    for(p_variable in pred_variables) {
+      calculate_allweeks_model_roc(p_variable, m_type)
+    }
+  }
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - calculate_all_rocs - Elapsed:", fstop_time[3], "s"))
+}
+
+
+
+plot_prediction_model_roc_allweeks <- function(model_type, pred_variable) {
+
+  gp <- ggplot() + 
+          theme_stata() + 
+          ggtitle(paste("All Weeks ROC for", model_type, "-", pred_variable))
+  legend_text <- c()
+  
+  for(n_week in 1:7) {
+    item_name <- paste(model_type, "_", pred_variable, "_w", n_week, sep = "")
+    roc_data <- predictive_rocs[[item_name]]
+    week_name <- paste("Week_", n_week)
+    gp <- gp + geom_line(data = roc_data, aes(x = 1-specificity, y = sensitivity, linetype = "Week"), linetype = n_week, size = 1)
+    legend_text <- c(legend_text, week_name = n_week)
+    # ggplot(conf_matrix_values, aes(1 - specificity)) + 
+    # conf_matrix_values$abs_diff <- abs(conf_matrix_values$sensitivity - conf_matrix_values$specificity)
+    # conf_matrix_values$dropout_diff <- abs(conf_matrix_values$dropout - dropout_reference)
+    # min_cut_value <- which.min(conf_matrix_values$abs_diff)
+    # min_dropout_diff <- which.min(conf_matrix_values$dropout_diff)
+    # min_dist <- which.min(conf_matrix_values$dist)
+  
+  }
+  gp <- gp + labs(x = "False Positives Rate", y = "True Positives Rate") +
+    scale_linetype_stata("Week", legend_text)
+    
+  return(gp)
+}
+
+
+generate_allrocs_rp <- function() {
+  fstart_time <- proc.time()
+  log_new_info("- START - generate_allrocs_rp")
+  
+  model_types <- c("logreg", "xgboost")
+  pred_variables <- c("certificate", "one_week_ahead", "two_weeks_ahead")
+  
+  for(m_type in model_types) {
+    for(p_variable in pred_variables) {
+      rocp <- plot_prediction_model_roc_allweeks(m_type, p_variable)
+      file_name <- paste("./", m_type, "_", p_variable, ".png", sep = "")
+      ggsave(filename = file_name, plot = rocp, device = "png")
+    }
+  }
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - generate_allrocs_rp - Elapsed:", fstop_time[3], "s"))
+}
+
+
+generate_allroc_table_rp <- function() {
+  fstart_time <- proc.time()
+  log_new_info("- START - generate_allroc_table_rp")
+  
+  model_types <- c("logreg", "xgboost")
+  pred_variables <- c("certificate", "one_week_ahead", "two_weeks_ahead")
+  df_return <- data.frame(week_number = 1:7)
+  
+  for(m_type in model_types) {
+    for(p_variable in pred_variables) {
+      week_roc <- c()
+      for(n_week in 1:7) {
+        pred_name <- paste("rp_w", n_week, "_", m_type, "_", p_variable, "_prediction", sep = "")
+        roc_probabilities <- predictive_models[[pred_name]]
+        roc_probabilities <- roc_probabilities$variable_prob
+        data_name <- paste("rp_w", n_week, sep = "")
+        roc_reference <- predictive_data[[data_name]]
+        roc_reference <- roc_reference[roc_reference$short_code == "research-project-5", p_variable]
+        roc_prediction <- prediction(roc_probabilities, roc_reference)
+        auc_value <- performance(roc_prediction, measure = "auc")
+        week_roc <- c(week_roc, auc_value@y.values[[1]])
+      }
+      ret_name <- paste(m_type, "_", p_variable, sep = "")
+      df_return[, ret_name] <- week_roc
+    }
+  }
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - generate_allroc_table_rp - Elapsed:", fstop_time[3], "s"))
+  return(df_return)
+}
+
+
+manually_generated_plots <- function() {
+  plot_prediction_model_roc_allweeks("logreg", "certificate")
+  plot_prediction_model_roc_allweeks("logreg", "one_week_ahead")
+  plot_prediction_model_roc_allweeks("logreg", "two_weeks_ahead")
+  plot_prediction_model_roc_allweeks("xgboost", "certificate")
+  plot_prediction_model_roc_allweeks("xgboost", "one_week_ahead")
+  plot_prediction_model_roc_allweeks("xgboost", "two_weeks_ahead")
+}
+
+plot_prediciton_model_cutoff <- function() {
+  item_name <- "xgboost_certificate_w7"
+  conf_matrix_values <- predictive_rocs[[item_name]]
+  cut_values <- seq(.01,.99,length=1000)
   ggplot(conf_matrix_values, aes(cut_values)) + 
     theme_stata() +
     geom_line(aes(y = sensitivity, color = "Sensitivity", linetype = "Sensitivity"), size = 1) + 
@@ -383,14 +562,39 @@ validate_predictive_models <- function() {
     geom_line(aes(y = dist, color = "Distance", linetype = "Distance"), size = 1) +
     scale_linetype_manual("", values = c("Sensitivity" = 1, "Specificity" = 3, "Dropout" = 4, "Distance" = 5)) +
     labs(title = "LogRegression Cutoff Analysis", x = "Cut Values", y = "Value", color = "")
-  ggplot(conf_matrix_values, aes(1 - specificity)) + 
-    theme_stata() + 
-    geom_line(aes(y = sensitivity), linetype = 8, colour = "red", size = 1) +
-    ggtitle("LogRegression ROC For Each Predicted Week") + 
-    labs(x = "False Positives Rate", y = "True Positives Rate")
-  
+}
+
+plot_pred_prob_hist <- function() {
+  hist_data <- data.frame(obs_class = predictive_data$rp_w1$certificate)
+  ggplot(aes(x = hist_data$obs_class)) +
+    theme_stata() +
+    geom_histogram(aes(x = obs_class)) +
+    labs(title = "Observed classes for Certificate - Week 1", x = "Class", y = "Frequency", color = "")
+    
 }
 
 
+########## File read/write Operations ##########
+save_models_data_file <- function(file_name) {
+  fstart_time <- proc.time()
+  log_new_info("- START - save_models_data_file")
+  
+  objects <- c("predictive_data", "predictive_models", "predictive_rocs")
+  
+  save(list = objects, file = paste("./", DATA_MODELS, "/", file_name, ".RData", sep = ""))
 
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - save_models_data_file - Elapsed:", fstop_time[3], "s"))
+}
+
+
+load_models_data_file <- function(file_name) {
+  fstart_time <- proc.time()
+  log_new_info("- START - load_models_data_file")
+  
+  load( file = paste("./", DATA_MODELS, "/", file_name, ".RData", sep = ""), envir = .GlobalEnv )
+  
+  fstop_time <- proc.time() - fstart_time
+  log_new_info(paste("- END - load_models_data_file - Elapsed:", fstop_time[3], "s"))
+}
 

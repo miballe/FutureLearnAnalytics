@@ -1,3 +1,8 @@
+####################################################
+# This theme is an adapted version of the theme "stata" 
+# available in https://github.com/jrnold/ggthemes
+####################################################
+#
 #' Palette data for the ggthemes package
 #'
 #' Data used by the palettes in the ggthemes package.

@@ -30,6 +30,7 @@ EXECUTE_LOAD_CLEAN_DATA <- FALSE
 EXECUTE_DATA_TRANSFORMATION <- FALSE
 EXECUTE_SAVE_TRANSFORMED_DATA <- FALSE
 EXECUTE_LOAD_TRANSFORMED_DATA <- TRUE
+EXECUTE_LOAD_MODELS_DATA <- TRUE
 
 # Global errors and warnings containers initalization
 execution_errors <- list()
@@ -42,6 +43,7 @@ log_new_info("***** MAIN_EXECUTION START *****")
 
 predictive_data <- list()
 predictive_models <- list()
+predictive_rocs <- list()
 
 ########## Load Downloaded Data Section ##########
 # Functions from 01_load.r
@@ -218,6 +220,21 @@ if(EXECUTE_LOAD_TRANSFORMED_DATA & length(execution_errors) == 0) {
   log_new_info(paste("- END - SECTION - Load_Transformed_Data - Elapsed:", cstop_time[3], "s"))
 } else {
   log_new_info("- IGNORED - SECTION - Load_Transformed_Data")
+}
+
+
+########## Load Transformed Data ##########
+# Functions from 03_transform.r
+if(EXECUTE_LOAD_MODELS_DATA & length(execution_errors) == 0) {
+  cstart_time <- proc.time()
+  log_new_info("- START - SECTION - Load_Models_Data")
+  
+  load_models_data_file(DATA_MODELS)
+  
+  cstop_time <- proc.time() - cstart_time
+  log_new_info(paste("- END - SECTION - Load_Models_Data - Elapsed:", cstop_time[3], "s"))
+} else {
+  log_new_info("- IGNORED - SECTION - Load_Models_Data")
 }
 
 

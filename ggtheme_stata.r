@@ -1,3 +1,8 @@
+####################################################
+# This theme is an adapted version of the theme "stata" 
+# available in https://github.com/jrnold/ggthemes
+####################################################
+#
 #' Stata color palettes (discrete)
 #'
 #' Stata color palettes. See Stata documentation for a description of

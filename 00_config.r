@@ -13,6 +13,8 @@ suppressMessages(library(tm))
 suppressMessages(library(stringi))
 suppressMessages(library(lubridate))
 suppressMessages(library(caret))
+suppressMessages(library(xgboost))
+suppressMessages(library(ROCR))
 
 ########## Global constants and settings ##########
 # Even if suffixes are originally matching FL conventions, the same names
@@ -21,6 +23,7 @@ DATA_DOWNLOADED = "Data_Downloaded"               # Downloaded data folder name
 DATA_RAW = "Data_Raw"                             # Raw data folder name
 DATA_CLEAN = "Data_Clean"                         # Clean data folder name
 DATA_TRANSFORMED = "Data_Transformed"             # Transformed data folder name
+DATA_MODELS = "Data_Models"                       # Data manually stored for models output
 SUFFIX_COMMENTS = "comments"                      # Suffix for comments CSV files from FL
 SUFFIX_ENROLMENTS = "enrolments"                  # Suffix for enrolments CSV files from FL
 SUFFIX_PRASSIGNMENTS = "peer-review-assignments"  # Suffix for Peer to peer review assignments CSV files from FL
@@ -36,7 +39,7 @@ FILE_LOG = "damoocp"                              # Log file name, to be created
 # Logging, warning and error object creation and control
 logger <- log4r::create.logger()
 log4r::logfile(logger) <- file.path(paste("./", FILE_LOG, ".log", sep = ""))
-log4r::level(logger) <- "DEBUG"
+log4r::level(logger) <- "INFO"
 
 # Functions to write the log and screen progress
 # All methods are called as log4r::XXXX to avoid loading the package and the
