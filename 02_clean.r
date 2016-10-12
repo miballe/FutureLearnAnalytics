@@ -293,17 +293,22 @@ summary_clean_data <- function() {
 
 plot_weeks_steps_hist <- function(test_short_code) {
   course_steps_times <- df_step_activity[df_step_activity$short_code == test_short_code & !is.na(df_step_activity$total_seconds), c("short_code", "week_number", "step_number", "total_seconds")]
-  steps_stats <- select(course_steps_times[course_steps_times$short_code == test_short_code,], week_number, step_number, total_seconds) %>% group_by(week_number, step_number) %>% select(week_number, step_number, total_seconds) %>% summarize(duration_median = as.integer(median(total_seconds, na.rm = TRUE)), duration_mean = as.integer(mean(total_seconds, na.rm = TRUE)), duration_std = as.integer(sd(total_seconds, na.rm = TRUE)))
-  steps_stats <- merge(df_course_details[df_course_details$short_code == test_short_code, c("short_code", "week_number", "step_number", "duration_estimated")], steps_stats, all = TRUE)
+  course_steps_times <- course_steps_times[course_steps_times$week_number == 1 & course_steps_times$step_number < 6,]
+  steps_stats <- select(course_steps_times[course_steps_times$short_code == test_short_code,], week_number, step_number, total_seconds) %>% 
+    filter(week_number == 1 & step_number < 6) %>%
+    group_by(week_number, step_number) %>% select(week_number, step_number, total_seconds) %>% 
+    summarize(duration_median = as.integer(median(total_seconds, na.rm = TRUE)), duration_mean = as.integer(mean(total_seconds, na.rm = TRUE)), duration_std = as.integer(sd(total_seconds, na.rm = TRUE)))
+  steps_stats <- merge(df_course_details[df_course_details$short_code == test_short_code, c("short_code", "week_number", "step_number", "duration_estimated")], steps_stats, all.y = TRUE)
   course_steps_times$week <- paste(course_steps_times$week_number, "-Week", sep = "")
   steps_stats$week <- paste(steps_stats$week_number, "-Week", sep = "")
   return_plot <- ggplot(course_steps_times) + 
+    theme_stata() + 
     geom_histogram(aes(x = log(total_seconds)), color = "grey70", bins = 30) +
-    geom_vline(aes(xintercept = log(duration_median)), data = steps_stats, colour = "forestgreen") +
-    geom_vline(aes(xintercept = log(duration_estimated)), data = steps_stats, linetype = "dashed", colour = "royalblue") +
-    geom_vline(aes(xintercept = log(duration_mean)), data = steps_stats, linetype = "dashed", colour = "red") +
+    geom_vline(aes(xintercept = log(duration_median)), data = steps_stats, colour = "forestgreen", size = 1) +
+    geom_vline(aes(xintercept = log(duration_estimated)), data = steps_stats, linetype = "dashed", colour = "royalblue", size = 1) +
+    geom_vline(aes(xintercept = log(duration_mean)), data = steps_stats, linetype = "dotted", colour = "red", size = 1) +
     facet_grid(week ~ step_number, switch = "y") +
-    ggtitle(paste("Duration Time Histogram for Week-Step Combination \n for", test_short_code)) +
+    ggtitle(paste("Duration Time Histogram for partial Week-Step Combination \n for", test_short_code)) +
     labs(x = "Duration Seconds (Log scale)", y = "Number of Views")
   return(return_plot)
 }
