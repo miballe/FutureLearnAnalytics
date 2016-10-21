@@ -123,6 +123,17 @@ transform_course_facts <- function() {
 
   log_new_debug("- Merging activity aggregates...")
   df_return <- merge(df_return, course_activity, intersect(names(df_return), names(course_activity)), all = TRUE)
+  
+  log_new_debug("- Calculating social activity...")
+  social_activity <- df_comments %>%
+            group_by(short_code, week_number, step_number) %>%
+            summarize(number_social_interactions = n(),
+              total_words = sum(clean_words_number),
+              total_likes = sum(likes),
+              avg_words_comment = total_words/number_social_interactions)
+  
+  log_new_debug("- Merging social activity...")
+  df_return <- merge(df_return, social_activity, intersect(names(df_return), names(social_activity)), all = TRUE)
 
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - transform_course_facts - Elapsed:", fstop_time[3], "s"))
@@ -281,8 +292,8 @@ save_transformed_data_file <- function(objects, file_name) {
   log_new_info("- START - save_transformed_data_file")
   
   save(list = objects, file = paste("./", DATA_TRANSFORMED, "/", file_name, ".RData", sep = ""))
-  write.csv(df_course_facts, paste("./", DATA_TRANSFORMED, "/course_facts.csv", sep = ""))
-  write.csv(df_participant_facts, paste("./", DATA_TRANSFORMED, "/participant_facts.csv", sep = ""))
+  write.csv(df_course_facts, paste("./", DATA_TRANSFORMED, "/course_facts.csv", sep = ""), row.names = FALSE)
+  write.csv(df_participant_facts, paste("./", DATA_TRANSFORMED, "/participant_facts.csv", sep = ""), row.names = FALSE)
   
   fstop_time <- proc.time() - fstart_time
   log_new_info(paste("- END - save_transformed_data_file - Elapsed:", fstop_time[3], "s"))
